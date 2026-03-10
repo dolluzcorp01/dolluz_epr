@@ -228,15 +228,18 @@ export default function DolluzEPRPortal() {
     apiFetch("/api/auth/me")
       .then(r => r.json())
       .then(d => {
-        if (d.success && d.data) {
+        const u = d.user || d.data;
+        if (d.success && u) {
           setAdminProfile(p => ({
             ...p,
-            name: d.data.name || p.name,
-            email: d.data.email || p.email,
-            phone: d.data.phone || p.phone,
-            designation: d.data.designation || p.designation,
-            role: d.data.role || p.role,
-            avatar: (d.data.name || p.name || "?")[0].toUpperCase(),
+            name:        u.name        || p.name,
+            email:       u.email       || p.email,
+            phone:       u.phone       || p.phone,
+            designation: u.designation || p.designation,
+            timezone:    u.timezone    || p.timezone,
+            company:     u.company     || p.company,
+            role:        u.role        || p.role,
+            avatar:      (u.avatar_initials) || (u.name || p.name || "?")[0].toUpperCase(),
           }));
         }
       })
