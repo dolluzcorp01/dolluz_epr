@@ -140,13 +140,13 @@ export default function DolluzEPRPortal() {
   const [scoringLocked, setScoringLocked] = useState({});
 
   const [adminProfile, setAdminProfile] = useState({
-    name: "Superr Admin",
-    email: "admin@dolluz.com",
-    phone: "9876543210",
-    designation: "CEO",
-    company: "Dolluz Corp",
+    name: "",
+    email: "",
+    phone: "",
+    designation: "",
+    company: "",
     timezone: "Asia/Kolkata",
-    avatar: "S",
+    avatar: "",
   });
 
   // ── Load all shared data from backend on mount ─────────────────────────────
@@ -236,7 +236,7 @@ export default function DolluzEPRPortal() {
             phone: d.data.phone || p.phone,
             designation: d.data.designation || p.designation,
             role: d.data.role || p.role,
-            avatar: (d.data.name || p.name)[0].toUpperCase(),
+            avatar: (d.data.name || p.name || "?")[0].toUpperCase(),
           }));
         }
       })
@@ -318,7 +318,7 @@ export default function DolluzEPRPortal() {
             ...p,
             name: user.name || p.name,
             email: user.email || p.email,
-            avatar: (user.name || p.name)[0].toUpperCase(),
+            avatar: (user.name || p.name || "?")[0].toUpperCase(),
           }));
           navigate("/dashboard", { replace: true });
         }} />

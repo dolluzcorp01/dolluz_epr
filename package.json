@@ -2,7 +2,7 @@
   "name": "dolluz_epr",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://localhost:4000",
+  "proxy": "http://localhost:4321",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

@@ -1,7 +1,7 @@
 export const API_BASE =
     process.env.NODE_ENV === "production"
         ? process.env.REACT_APP_API || ""
-        : "http://localhost:4000";
+        : "http://localhost:4321";
 
 export async function apiFetch(endpoint, options = {}) {
     const token = localStorage.getItem("epr_token");
