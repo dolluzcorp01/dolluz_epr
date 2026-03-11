@@ -7,6 +7,9 @@ import Toast from "../components/Toast";
 import { uid } from "../constants";
 import { apiFetch } from "../utils/api";
 
+const G2 = ({ children }) => <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>{children}</div>;
+const G3 = ({ children }) => <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>{children}</div>;
+
 const AddEmployeeModal = ({ onSave, onClose, existing }) => {
   const isEdit = !!existing;
   const blank = {
@@ -73,8 +76,6 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
   const frow = (label, children, req) => (
     <div style={{ marginBottom: 14 }}>{lbl(label, req)}{children}</div>
   );
-  const G2 = ({ children }) => <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>{children}</div>;
-  const G3 = ({ children }) => <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>{children}</div>;
 
   const tabContent = [
     // Tab 0 — Personal & ID
