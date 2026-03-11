@@ -72,7 +72,7 @@ const SHTable = ({ rows, onUpdate, onDelete, onToggle, activeEmails = [], primar
   );
 };
 
-const AddClientModal = ({ onAdd, onClose }) => {
+const AddClientModal = ({ onAdd, onClose, visible }) => {
   const [tab, setTab] = useState(0);
   const TABS = ["Company Info", "Communication", "Contacts", "Setup"];
   const TAB_COLORS = ["#E8520A", "#3B82F6", "#8B5CF6", "#10B981"];
@@ -107,7 +107,7 @@ const AddClientModal = ({ onAdd, onClose }) => {
       code: f.code,
       name: f.name, legalName: f.legalName, industry: f.industry,
       companyType: f.companyType, regNumber: f.regNumber,
-      domain: f.domain, domains: [f.domain], status: f.status,
+      domain: f.domain, domains: f.domain ? [{ id: "tmp_1", domain: f.domain }] : [], status: f.status,
       website: f.website, linkedin: f.linkedin,
       founded: f.founded, empRange: f.empRange, revenueRange: f.revenueRange,
       communication: {
@@ -138,8 +138,9 @@ const AddClientModal = ({ onAdd, onClose }) => {
   const G2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
   const G3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 };
 
+  if (!visible) return null;
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-overlay">
       <div className="modal" style={{ width: 680 }}>
 
         {/* Header */}
@@ -427,90 +428,255 @@ const AddClientModal = ({ onAdd, onClose }) => {
 };
 
 const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps }) => {
-  const [selId, setSelId] = useState(() => clients[0]?.id || "CL001");
+  const [selId, setSelId] = useState(() => {
+    const saved = localStorage.getItem("epr_selected_client");
+    if (saved && clients.find(c => c.id === saved)) return saved;
+    return clients[0]?.id || "";
+  });
+  const setSelIdPersist = (id) => { setSelId(id); localStorage.setItem("epr_selected_client", id); };
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newDept, setNewDept] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [confirmDelDept, setConfirmDelDept] = useState(null); // { id, name }
+  const [confirmDelDomain, setConfirmDelDomain] = useState(null); // { id, domain }
+  const [newSHIds, setNewSHIds] = useState(new Set());
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2400); };
 
-  // When clients list loads from API (or selId changes), fetch full client details
+  // Fetch full client details (stakeholders, departments, domains) when selId changes
   useEffect(() => {
     if (!selId) return;
-    const existing = clients.find(c => c.id === selId);
-    if (!existing) return;
-    // Only fetch if stakeholders not yet loaded
-    if (existing.stakeholders) return;
     apiFetch(`/api/clients/${selId}`)
       .then(r => r.json())
       .then(d => {
         if (d.success && d.data) {
           setClients(cs => cs.map(c => c.id === selId ? {
             ...c,
-            stakeholders: d.data.stakeholders || [],
+            domain: d.data.primary_domain || c.domain || "",
+            stakeholders: (d.data.stakeholders || []).map(s => ({ ...s, deptId: s.dept_id ?? s.deptId ?? null, active: Boolean(s.active) })),
             departments: d.data.departments || [],
-            domains: d.data.domains || [],
-            primaryStakeholderId: d.data.primary_stakeholder_id,
+            domains: (d.data.domains || []).map(x => typeof x === "string" ? { id: x, domain: x } : x),
+            primaryStakeholderId: d.data.primary_stakeholder_id ?? c.primaryStakeholderId,
+            primaryContact: { name: d.data.pc_name || "", email: d.data.pc_email || "", phone: d.data.pc_phone || "" },
           } : c));
         }
       })
       .catch(() => { });
+    setNewSHIds(new Set()); // clear pending new stakeholders on client switch
   }, [selId]); // eslint-disable-line
 
-  // Sync selId when clients list first loads from API
+  // Sync selId when clients list first loads
   useEffect(() => {
     if (clients.length > 0 && !clients.find(c => c.id === selId)) {
-      setSelId(clients[0].id);
+      setSelIdPersist(clients[0].id);
     }
   }, [clients]); // eslint-disable-line
 
   const client = clients.find(c => c.id === selId) || clients[0] || null;
-  const clientSH = (client?.stakeholders || []).filter(s => s.level === "client");
+  const activeDeptIds = new Set((client?.departments || []).map(d => d.id));
+  // Orphaned dept stakeholders (dept deleted) fall back to client-level display
+  const clientSH = (client?.stakeholders || []).filter(s => s.level === "client" || (s.level === "dept" && !activeDeptIds.has(s.deptId)));
   const deptSH = did => (client?.stakeholders || []).filter(s => s.level === "dept" && s.deptId === did);
   const empCount = cid => employees.filter(e => (e.allocations || []).some(a => a.clientId === cid)).length;
   const activeEmails = (allReviews || [])
     .filter(r => (r.client || "").includes((client?.name || "").split(" ")[0]) && ["Email Sent", "In Progress", "Submitted"].includes(r.status))
     .map(r => r.stakeholderEmail || r.stakeholder_email || "");
 
-  const addSH = async (level, deptId = null) => {
-    const newId = "S" + uid();
-    setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: [...c.stakeholders, { id: newId, name: "", email: "", designation: "", level, deptId, active: true }] } : c));
-    try {
-      const res = await apiFetch(`/api/clients/${selId}/stakeholders`, { method: "POST", body: JSON.stringify({ name: "", email: "", designation: "", level: level || "client" }) });
-      const d = await res.json();
-      if (d.success && d.data) setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === newId ? { ...s, id: String(d.data.id) } : s) } : c));
-    } catch (e) { }
+  // ── Stakeholders ─────────────────────────────────────────────────────────────
+  const addSH = (level, deptId = null) => {
+    const tempId = "new_" + uid();
+    setNewSHIds(s => new Set([...s, tempId]));
+    setClients(cs => cs.map(c => c.id === selId
+      ? { ...c, stakeholders: [...(c.stakeholders || []), { id: tempId, name: "", email: "", designation: "", level, deptId, active: true }] }
+      : c));
   };
-  const updateSH = (sid, fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === sid ? { ...s, [fld]: v } : s) } : c));
+  const updateSH = (sid, fld, v) => setClients(cs => cs.map(c => c.id === selId
+    ? { ...c, stakeholders: (c.stakeholders || []).map(s => s.id === sid ? { ...s, [fld]: v } : s) }
+    : c));
   const deleteSH = async (sid) => {
-    setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.filter(s => s.id !== sid) } : c));
-    try { await apiFetch(`/api/clients/${selId}/stakeholders/${sid}`, { method: "DELETE" }); } catch (e) { }
+    setClients(cs => cs.map(c => c.id === selId
+      ? { ...c, stakeholders: (c.stakeholders || []).filter(s => s.id !== sid) }
+      : c));
+    setNewSHIds(prev => { const n = new Set(prev); n.delete(sid); return n; });
+    if (!newSHIds.has(sid)) {
+      try { await apiFetch(`/api/clients/${selId}/stakeholders/${sid}`, { method: "DELETE" }); } catch (e) { }
+    }
   };
-  const toggleSH = sid => setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === sid ? { ...s, active: !s.active } : s) } : c));
+  const toggleSH = sid => setClients(cs => cs.map(c => c.id === selId
+    ? { ...c, stakeholders: (c.stakeholders || []).map(s => s.id === sid ? { ...s, active: !s.active } : s) }
+    : c));
   const setPrimary = async (sid) => {
     setClients(cs => cs.map(c => c.id === selId ? { ...c, primaryStakeholderId: sid } : c));
     try { await apiFetch(`/api/clients/${selId}/primary-stakeholder`, { method: "PUT", body: JSON.stringify({ stakeholder_id: sid }) }); } catch (e) { }
   };
+  const saveStakeholders = async () => {
+    const shs = client.stakeholders || [];
+    if (!shs.length) { showToast("No stakeholders to save"); return; }
+    let failed = 0;
+    await Promise.all(shs.map(async s => {
+      try {
+        if (newSHIds.has(s.id)) {
+          if (!s.name.trim() || !s.email.trim()) return; // skip blank rows
+          const res = await apiFetch(`/api/clients/${selId}/stakeholders`, {
+            method: "POST",
+            body: JSON.stringify({ name: s.name, email: s.email, designation: s.designation || "", level: s.level, dept_id: s.deptId || null }),
+          });
+          const d = await res.json();
+          if (d.success) {
+            const realId = String(d.id);
+            setClients(cs => cs.map(c => c.id === selId
+              ? { ...c, stakeholders: (c.stakeholders || []).map(sh => sh.id === s.id ? { ...sh, id: realId } : sh) }
+              : c));
+            setNewSHIds(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+          } else { failed++; }
+        } else {
+          const res = await apiFetch(`/api/clients/${selId}/stakeholders/${s.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ name: s.name, email: s.email, designation: s.designation || "", level: s.level, dept_id: s.deptId || null, active: s.active ? 1 : 0 }),
+          });
+          const d = await res.json();
+          if (!d.success) failed++;
+        }
+      } catch (e) { failed++; }
+    }));
+    showToast(failed ? `${failed} stakeholder(s) failed to save` : "Stakeholders saved");
+  };
+
+  // ── Client fields ─────────────────────────────────────────────────────────────
   const updateStat = v => setClients(cs => cs.map(c => c.id === selId ? { ...c, status: v } : c));
-  const updatePC = (fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, primaryContact: { ...c.primaryContact, [fld]: v } } : c));
-  const addDomain = () => { if (!newDomain.trim()) return; setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: [...c.domains, newDomain.trim()] } : c)); setNewDomain(""); showToast("Domain added"); };
-  const remDomain = d => setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: c.domains.filter(x => x !== d) } : c));
-  const addDept = () => { if (!newDept.trim()) return; setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: [...c.departments, { id: "D" + uid(), name: newDept.trim() }] } : c)); setNewDept(""); showToast("Department added"); };
-  const remDept = did => setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: c.departments.filter(d => d.id !== did) } : c));
+  const updatePC = (fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, primaryContact: { ...(c.primaryContact || {}), [fld]: v } } : c));
+  const updateField = (fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, [fld]: v } : c));
+
+  const saveClient = async () => {
+    try {
+      const res = await apiFetch(`/api/clients/${selId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: client.name,
+          industry: client.industry || "",
+          status: client.status || "active",
+          pc_name: client.primaryContact?.name || "",
+          pc_email: client.primaryContact?.email || "",
+          pc_phone: client.primaryContact?.phone || "",
+          notes: client.notes || "",
+        }),
+      });
+      const d = await res.json();
+      if (d.success) { setEditMode(false); showToast("Client saved"); }
+      else showToast("Error: " + (d.message || "Save failed"));
+    } catch (e) { showToast("Network error — could not save client"); }
+  };
+
+  // ── Domains ───────────────────────────────────────────────────────────────────
+  const addDomain = async () => {
+    if (!newDomain.trim()) return;
+    const val = newDomain.trim();
+    setNewDomain("");
+    try {
+      const res = await apiFetch(`/api/clients/${selId}/domains`, { method: "POST", body: JSON.stringify({ domain: val }) });
+      const d = await res.json();
+      if (d.success) {
+        setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: [...(c.domains || []), { id: d.id, domain: d.domain }] } : c));
+        showToast("Domain added");
+      } else { showToast("Error: " + (d.message || "Failed to add domain")); }
+    } catch (e) { showToast("Network error"); }
+  };
+  const remDomain = async (domainId) => {
+    const found = (client.domains || []).find(d => (d.id || d) === domainId);
+    setConfirmDelDomain({ id: domainId, domain: found?.domain || domainId });
+  };
+  const doRemDomain = async (domainId) => {
+    setConfirmDelDomain(null);
+    setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: (c.domains || []).filter(x => (x.id || x) !== domainId) } : c));
+    try { await apiFetch(`/api/clients/${selId}/domains/${domainId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove domain"); }
+  };
+
+  // ── Departments ───────────────────────────────────────────────────────────────
+  const addDept = async () => {
+    if (!newDept.trim()) return;
+    const val = newDept.trim();
+    setNewDept("");
+    try {
+      const res = await apiFetch(`/api/clients/${selId}/departments`, { method: "POST", body: JSON.stringify({ name: val }) });
+      const d = await res.json();
+      if (d.success) {
+        setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: [...(c.departments || []), { id: d.id, name: d.name }] } : c));
+        showToast("Department added");
+      } else { showToast("Error: " + (d.message || "Failed to add department")); }
+    } catch (e) { showToast("Network error"); }
+  };
+  const remDept = async (deptId) => {
+    setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: (c.departments || []).filter(d => d.id !== deptId) } : c));
+    try { await apiFetch(`/api/clients/${selId}/departments/${deptId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove department"); }
+  };
   const deleteClient = async () => {
-    const rem = clients.filter(c => c.id !== selId);
-    setClients(rem); setSelId(rem[0] ? rem[0].id : ""); setConfirmDel(false); showToast("Client deleted");
-    try { await apiFetch(`/api/clients/${selId}`, { method: "DELETE" }); } catch (e) { }
+    const deletedName = client.name;
+    setConfirmDel(false);
+    try {
+      const res = await apiFetch(`/api/clients/${selId}`, { method: "DELETE" });
+      const d = await res.json();
+      if (d.success) {
+        const rem = clients.filter(c => c.id !== selId);
+        setClients(rem);
+        setSelIdPersist(rem[0] ? rem[0].id : "");
+        showToast(`"${deletedName}" removed successfully`);
+      } else {
+        showToast("Cannot delete: " + (d.message || "Server error"));
+      }
+    } catch (e) {
+      showToast("Network error — client not deleted");
+    }
   };
   const addClient = async (nc) => {
-    setClients(p => [...p, nc]); setSelId(nc.id); setShowAdd(false); showToast("Client created");
     try {
-      const res = await apiFetch("/api/clients", { method: "POST", body: JSON.stringify({ name: nc.name, industry: nc.industry || "", notes: nc.notes || "" }) });
+      const res = await apiFetch("/api/clients", {
+        method: "POST",
+        body: JSON.stringify({
+          code: nc.code,
+          name: nc.name,
+          industry: nc.industry || "",
+          status: nc.status || "onboarding",
+          color_hex: nc.color || "#E8520A",
+          pc_name: nc.primaryContact?.name || "",
+          pc_email: nc.primaryContact?.email || "",
+          pc_phone: nc.primaryContact?.phone || nc.primaryContact?.mobile || "",
+          notes: nc.notes || "",
+        }),
+      });
       const d = await res.json();
-      if (d.success && d.data) setClients(cs => cs.map(c => c.id === nc.id ? { ...c, id: d.data.id, code: d.data.code } : c));
-    } catch (e) { }
+      if (d.success) {
+        const clientId = nc.code;
+        // Save domain to DB
+        let savedDomains = [];
+        if (nc.domain) {
+          try {
+            const dr = await apiFetch(`/api/clients/${clientId}/domains`, { method: "POST", body: JSON.stringify({ domain: nc.domain }) });
+            const dd = await dr.json();
+            if (dd.success) savedDomains = [{ id: dd.id, domain: dd.domain }];
+          } catch (e) { }
+        }
+        // Save first department to DB
+        let savedDepts = [];
+        if (nc.departments && nc.departments[0]?.name) {
+          try {
+            const dr = await apiFetch(`/api/clients/${clientId}/departments`, { method: "POST", body: JSON.stringify({ name: nc.departments[0].name }) });
+            const dd = await dr.json();
+            if (dd.success) savedDepts = [{ id: dd.id, name: dd.name }];
+          } catch (e) { }
+        }
+        const saved = { ...nc, id: clientId, code: clientId, domains: savedDomains, departments: savedDepts, stakeholders: [] };
+        setClients(p => [...p, saved]);
+        setSelIdPersist(clientId);
+        setShowAdd(false);
+        showToast("Client created");
+      } else {
+        showToast("Error: " + (d.message || "Failed to save client"));
+      }
+    } catch (e) {
+      showToast("Network error — could not save client");
+    }
   };
 
   if (!client) return (
@@ -528,7 +694,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         <div className="card" style={{ padding: "6px 8px" }}>
           <div style={{ padding: "10px 10px 6px", fontSize: 11, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Clients</div>
           {clients.map(c => (
-            <div key={c.id} onClick={() => setSelId(c.id)}
+            <div key={c.id} onClick={() => setSelIdPersist(c.id)}
               style={{
                 display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 9, cursor: "pointer", marginBottom: 2,
                 background: selId === c.id ? "#FFF5F0" : "transparent",
@@ -569,22 +735,35 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn-secondary" onClick={() => setEditMode(!editMode)} style={{ fontSize: 12 }}>{editMode ? "Cancel" : "Edit"}</button>
-                {editMode && <button className="btn-primary" style={{ fontSize: 12 }} onClick={() => { setEditMode(false); showToast("Client saved"); }}>Save</button>}
+                {editMode && <button className="btn-primary" style={{ fontSize: 12 }} onClick={saveClient}>Save</button>}
                 <button className="btn-danger" onClick={() => setConfirmDel(true)} style={{ padding: "7px 12px" }}>Delete</button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              {[["Industry", client.industry], ["Primary Domain", client.domain], ["Employees", empCount(client.id) + " allocated"]].map(([l, v]) => (
-                <div key={l}>
-                  <label style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.6 }}>{l}</label>
-                  {editMode && l !== "Employees" ? <input className="inp" defaultValue={v} /> : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{v}</div>}
-                </div>
-              ))}
+              <div>
+                <label style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.6 }}>Industry</label>
+                {editMode
+                  ? <input className="inp" value={client.industry || ""} onChange={e => updateField("industry", e.target.value)} />
+                  : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{client.industry}</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.6 }}>Primary Domain</label>
+                {editMode
+                  ? <input className="inp" value={client.domain || ""} onChange={e => updateField("domain", e.target.value)} />
+                  : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{client.domain}</div>}
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.6 }}>Employees</label>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{empCount(client.id)} allocated</div>
+              </div>
             </div>
           </div>
 
           <div className="card" style={{ padding: "20px 24px" }}>
-            <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, color: "#0D1B2A", marginBottom: 14 }}>Primary Contact</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, color: "#0D1B2A" }}>Primary Contact</div>
+              <button className="btn-primary" style={{ fontSize: 12 }} onClick={saveClient}>Save Contact</button>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <FieldRow label="Full Name"><input className="inp" value={client.primaryContact && client.primaryContact.name ? client.primaryContact.name : ""} onChange={e => updatePC("name", e.target.value)} placeholder="Contact name" /></FieldRow>
               <FieldRow label="Email"><input className="inp" value={client.primaryContact && client.primaryContact.email ? client.primaryContact.email : ""} onChange={e => updatePC("email", e.target.value)} placeholder="contact@client.com" /></FieldRow>
@@ -597,9 +776,9 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
             <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 14 }}>Stakeholders must use these domains for OTP authentication</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
               {(client.domains || []).map(d => (
-                <div key={d} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: 8, padding: "6px 12px" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: "#4338CA", fontWeight: 600 }}>@{d}</span>
-                  <button onClick={() => remDomain(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#A5B4FC", fontSize: 16 }}>&#215;</button>
+                <div key={d.id || d} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: 8, padding: "6px 12px" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: "#4338CA", fontWeight: 600 }}>@{d.domain || d}</span>
+                  <button onClick={() => remDomain(d.id || d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#A5B4FC", fontSize: 16 }}>&#215;</button>
                 </div>
               ))}
             </div>
@@ -616,7 +795,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
               {(client.departments || []).map(d => (
                 <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 7, background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, padding: "7px 13px" }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "#1E293B" }}>{d.name}</span>
-                  <button onClick={() => remDept(d.id)} className="btn-ghost" style={{ padding: "0 0 0 4px", color: "#CBD5E1", fontSize: 16 }}>&#215;</button>
+                  <button onClick={() => setConfirmDelDept({ id: d.id, name: d.name })} className="btn-ghost" style={{ padding: "0 0 0 4px", color: "#CBD5E1", fontSize: 16 }}>&#215;</button>
                 </div>
               ))}
             </div>
@@ -658,27 +837,141 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
                 {deptSH(dept.id).length > 0 && <SHTable rows={deptSH(dept.id)} onUpdate={updateSH} onDelete={deleteSH} onToggle={toggleSH} activeEmails={activeEmails} />}
               </div>
             ))}
+
+            {(client.stakeholders || []).length > 0 && (
+              <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 10, borderTop: "1px solid #F1F5F9", marginTop: 8 }}>
+                <button className="btn-primary" style={{ fontSize: 12 }} onClick={saveStakeholders}>Save Stakeholder Changes</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {confirmDel && (
-        <div className="modal-overlay" onClick={() => setConfirmDel(false)}>
-          <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "28px", textAlign: "center" }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>&#128465;</div>
-              <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 17, color: "#0D1B2A", marginBottom: 8 }}>Delete {client.name}?</div>
-              <div style={{ fontSize: 13, color: "#64748B", marginBottom: 24 }}>This will remove the client and all its stakeholders. Employee allocations must be updated separately.</div>
-              <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                <button className="btn-primary" style={{ background: "#EF4444" }} onClick={deleteClient}>Yes, Delete</button>
-                <button className="btn-secondary" onClick={() => setConfirmDel(false)}>Cancel</button>
+      {confirmDel && (() => {
+        const deptCount = (client.departments || []).length;
+        const shCount = (client.stakeholders || []).length;
+        const domainCount = (client.domains || []).length;
+        return (
+          <div className="modal-overlay" onClick={() => setConfirmDel(false)}>
+            <div className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: "28px 32px" }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>&#128465;</div>
+                  <div>
+                    <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 17, color: "#0D1B2A" }}>Remove {client.name}?</div>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>{client.code} &middot; {client.industry}</div>
+                  </div>
+                </div>
+
+                {/* What will be affected */}
+                <div style={{ background: "#FFF5F0", border: "1.5px solid #FDBA74", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.6 }}>The following will be deactivated</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    {[
+                      { icon: "🏢", label: "Departments", count: deptCount },
+                      { icon: "👥", label: "Stakeholders", count: shCount },
+                      { icon: "🌐", label: "Domains", count: domainCount },
+                    ].map(({ icon, label, count }) => (
+                      <div key={label} style={{ background: "#fff", borderRadius: 8, padding: "10px 12px", textAlign: "center", border: "1px solid #FED7AA" }}>
+                        <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: count > 0 ? "#DC2626" : "#94A3B8" }}>{count}</div>
+                        <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#64748B", marginBottom: 22, lineHeight: 1.6 }}>
+                  <strong>Note:</strong> Employee allocations linked to this client must be updated separately. This action can be reversed by an admin from the database.
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmDel(false)}>Cancel — Keep Client</button>
+                  <button style={{ flex: 1, background: "#DC2626", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }} onClick={deleteClient}>
+                    Yes, Remove Client
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {confirmDelDept && (() => {
+        const shCount = (client.stakeholders || []).filter(s => s.deptId === confirmDelDept.id).length;
+        return (
+          <div className="modal-overlay" onClick={() => setConfirmDelDept(null)}>
+            <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: "26px 28px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>&#128465;</div>
+                  <div>
+                    <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: "#0D1B2A" }}>Remove "{confirmDelDept.name}"?</div>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>Department of {client.name}</div>
+                  </div>
+                </div>
+
+                <div style={{ background: "#FFF5F0", border: "1.5px solid #FDBA74", borderRadius: 9, padding: "12px 14px", marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.6 }}>What will be affected</div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1, background: "#fff", borderRadius: 7, padding: "10px", textAlign: "center", border: "1px solid #FED7AA" }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: shCount > 0 ? "#DC2626" : "#94A3B8" }}>{shCount}</div>
+                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Dept Stakeholders</div>
+                    </div>
+                    <div style={{ flex: 1, background: "#fff", borderRadius: 7, padding: "10px", textAlign: "center", border: "1px solid #FED7AA" }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: "#DC2626" }}>1</div>
+                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Department</div>
+                    </div>
+                  </div>
+                </div>
+
+                {shCount > 0 && (
+                  <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#991B1B", marginBottom: 16 }}>
+                    <strong>{shCount} stakeholder{shCount > 1 ? "s" : ""}</strong> assigned to this department will also be removed. Employee allocations to this department must be reassigned manually.
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmDelDept(null)}>Cancel</button>
+                  <button style={{ flex: 1, background: "#DC2626", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                    onClick={() => { remDept(confirmDelDept.id); setConfirmDelDept(null); }}>
+                    Yes, Remove Department
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {confirmDelDomain && (
+        <div className="modal-overlay" onClick={() => setConfirmDelDomain(null)}>
+          <div className="modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "26px 28px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 10, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>&#127758;</div>
+                <div>
+                  <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: "#0D1B2A" }}>Remove Domain?</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#4338CA", marginTop: 3, fontWeight: 700 }}>@{confirmDelDomain.domain}</div>
+                </div>
+              </div>
+              <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "11px 14px", fontSize: 12, color: "#991B1B", marginBottom: 20, lineHeight: 1.6 }}>
+                Stakeholders using <strong>@{confirmDelDomain.domain}</strong> will no longer be able to authenticate via OTP for <strong>{client.name}</strong>. This cannot be undone.
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmDelDomain(null)}>Cancel</button>
+                <button style={{ flex: 1, background: "#DC2626", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  onClick={() => doRemDomain(confirmDelDomain.id)}>
+                  Yes, Remove Domain
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {showAdd && <AddClientModal onAdd={addClient} onClose={() => setShowAdd(false)} />}
+      <AddClientModal onAdd={addClient} onClose={() => setShowAdd(false)} visible={showAdd} />
       {toast && <Toast msg={toast} />}
     </div>
   );

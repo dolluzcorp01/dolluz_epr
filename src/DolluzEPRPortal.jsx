@@ -41,12 +41,13 @@ function normalizeClient(c) {
       active: Boolean(s.active),
     })),
     departments: c.departments || [],
-    domains: c.domains || [],
-    domain: c.domain || (c.domains && c.domains[0]) || "",
+    domains: (c.domains || []).map(d => typeof d === "string" ? { id: d, domain: d } : d),
+    domain: c.primary_domain || c.domain || "",
   };
 }
 
 function normalizeCycle(c) {
+  const closed = Boolean(c.closed);
   return {
     ...c,
     q: c.quarter_label ?? c.q ?? "",
@@ -56,7 +57,9 @@ function normalizeCycle(c) {
     r2: c.r2_date ?? c.r2 ?? "",
     sent: Number(c.sent_count ?? c.sent ?? 0),
     submitted: Number(c.submitted_count ?? c.submitted ?? 0),
-    closed: Boolean(c.closed),
+    closed,
+    // Derive status so downstream consumers can use c.status === "Active"
+    status: c.status ?? (closed ? "Closed" : "Active"),
     emailHistory: c.emailHistory ?? [],
   };
 }
@@ -143,6 +146,8 @@ export default function DolluzEPRPortal() {
     navigate("/" + p, { replace: false });
   }, [navigate]);
 
+  const [signedOut, setSignedOut] = useState(!localStorage.getItem("epr_token"));
+
   // Sync state when user navigates with browser back/forward
   // Also handle /login URL: redirect to /dashboard if signed in, else show LoginScreen
   useEffect(() => {
@@ -152,15 +157,15 @@ export default function DolluzEPRPortal() {
       return;
     }
     if (VALID_PAGES.includes(p) && p !== page) setPageState(p);
-  }, [location.pathname]); // eslint-disable-line
+  }, [location.pathname, signedOut]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [cycles, setCycles] = useState([]);
   const [showNewCycle, setShowNewCycle] = useState(false);
   const [empList, setEmpList] = useState([]);
   const [showAddEmp, setShowAddEmp] = useState(false);
-  const [signedOut, setSignedOut] = useState(!localStorage.getItem("epr_token"));
-  // True while initial data load is in progress (only on reload/direct nav, not after login)
+  // Show loading spinner on hard-reload when already authenticated; for post-login flow
+  // maybeReady() inside the data-load effect will clear this.
   const [appLoading, setAppLoading] = useState(!!localStorage.getItem("epr_token"));
   const [emailTemplates, setEmailTemplates] = useState([]);
   const [ccList, setCcList] = useState([]);
@@ -288,6 +293,7 @@ export default function DolluzEPRPortal() {
   const notifications = buildNotifications(employees, cycles, allReviews);
 
   const onNewEmployee = emp => {
+    // Update allocation employees list (used by Resources / Reviews / Scoring)
     setEmployees(p => [...p, {
       id: emp.id,
       code: emp.code,
@@ -296,6 +302,8 @@ export default function DolluzEPRPortal() {
       ctc: emp.ctc || 0,
       allocations: [],
     }]);
+    // Also update the full employee list so EmployeeDatabase reflects the new row immediately
+    setEmpList(p => [...p, normalizeEmpListItem(emp)]);
   };
 
   const handleAddCycle = nc => {
@@ -331,7 +339,10 @@ export default function DolluzEPRPortal() {
 
       {signedOut ? (
         <LoginScreen onLogin={(tok, user) => {
-          setAppLoading(false);
+          // Do NOT set appLoading false here — the data-load useEffect
+          // (triggered by setSignedOut(false)) will call setAppLoading(false)
+          // via maybeReady() once clients + allocs are fetched.
+          setAppLoading(true);
           setSignedOut(false);
           if (user) setAdminProfile(p => ({
             ...p,

@@ -13,7 +13,7 @@ async function listClients(req, res, next) {
     const [rows] = await db.execute(`
       SELECT
         c.id, c.code, c.name, c.industry, c.status, c.color_hex,
-        c.primary_stakeholder_id,
+        c.primary_domain, c.primary_stakeholder_id,
         c.pc_name, c.pc_email, c.pc_phone,
         c.notes, c.created_at, c.updated_at,
         COUNT(DISTINCT a.employee_id) AS active_resource_count,
@@ -45,6 +45,11 @@ async function getClient(req, res, next) {
 
     if (!client) return res.status(404).json({ success: false, message: "Client not found." });
 
+    const [domains] = await db.execute(
+      "SELECT id, domain FROM client_domains WHERE client_id = ? ORDER BY domain",
+      [req.params.id]
+    );
+
     const [departments] = await db.execute(
       "SELECT id, name FROM client_departments WHERE client_id = ? ORDER BY name",
       [req.params.id]
@@ -73,7 +78,7 @@ async function getClient(req, res, next) {
       WHERE a.client_id = ? AND a.is_active = 1
     `, [req.params.id]);
 
-    return res.json({ success: true, data: { ...client, departments, stakeholders, allocations } });
+    return res.json({ success: true, data: { ...client, domains, departments, stakeholders, allocations } });
   } catch (err) { next(err); }
 }
 
@@ -139,8 +144,8 @@ async function updateClient(req, res, next) {
         notes                  = COALESCE(?, notes),
         updated_at             = NOW()
        WHERE id = ?`,
-      [name, industry, status, color_hex, primary_stakeholder_id || null,
-       pc_name, pc_email, pc_phone, notes, id]
+      [name ?? null, industry ?? null, status ?? null, color_hex ?? null, primary_stakeholder_id || null,
+       pc_name ?? null, pc_email ?? null, pc_phone ?? null, notes ?? null, id]
     );
     return res.json({ success: true, message: "Client updated." });
   } catch (err) { next(err); }
@@ -186,4 +191,75 @@ async function setPrimaryStakeholder(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listClients, getClient, createClient, updateClient, deleteClient, setPrimaryStakeholder };
+// ── GET /api/clients/:id/domains ─────────────────────────────────────────────
+async function listDomains(req, res, next) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT id, domain FROM client_domains WHERE client_id = ? ORDER BY domain",
+      [req.params.id]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+}
+
+// ── POST /api/clients/:id/domains ─────────────────────────────────────────────
+async function addDomain(req, res, next) {
+  const { id } = req.params;
+  const { domain } = req.body;
+  if (!domain) return res.status(400).json({ success: false, message: "domain is required." });
+  try {
+    const [result] = await db.execute(
+      "INSERT INTO client_domains (client_id, domain) VALUES (?, ?)",
+      [id, domain.trim().toLowerCase()]
+    );
+    return res.status(201).json({ success: true, id: result.insertId, domain: domain.trim().toLowerCase() });
+  } catch (err) { next(err); }
+}
+
+// ── DELETE /api/clients/:id/domains/:domainId ─────────────────────────────────
+async function removeDomain(req, res, next) {
+  const { id, domainId } = req.params;
+  try {
+    await db.execute("DELETE FROM client_domains WHERE id = ? AND client_id = ?", [domainId, id]);
+    return res.json({ success: true, message: "Domain removed." });
+  } catch (err) { next(err); }
+}
+
+// ── POST /api/clients/:id/departments ─────────────────────────────────────────
+async function addDepartment(req, res, next) {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: "name is required." });
+  try {
+    const [existing] = await db.execute(
+      "SELECT id FROM client_departments WHERE id REGEXP '^D[0-9]+$' ORDER BY CAST(SUBSTRING(id,2) AS UNSIGNED) DESC LIMIT 1"
+    );
+    const maxNum = existing.length ? parseInt(existing[0].id.slice(1)) : 0;
+    const deptId = `D${maxNum + 1}`;
+    await db.execute(
+      "INSERT INTO client_departments (id, client_id, name) VALUES (?, ?, ?)",
+      [deptId, id, name.trim()]
+    );
+    return res.status(201).json({ success: true, id: deptId, name: name.trim() });
+  } catch (err) { next(err); }
+}
+
+// ── DELETE /api/clients/:id/departments/:deptId ───────────────────────────────
+async function removeDepartment(req, res, next) {
+  const { id, deptId } = req.params;
+  try {
+    // Promote any stakeholders assigned to this dept → client-level so they remain visible
+    await db.execute(
+      "UPDATE stakeholders SET level = 'client', dept_id = NULL WHERE dept_id = ? AND client_id = ?",
+      [deptId, id]
+    );
+    await db.execute("DELETE FROM client_departments WHERE id = ? AND client_id = ?", [deptId, id]);
+    return res.json({ success: true, message: "Department removed. Stakeholders promoted to client-level." });
+  } catch (err) { next(err); }
+}
+
+module.exports = {
+  listClients, getClient, createClient, updateClient, deleteClient, setPrimaryStakeholder,
+  listDomains, addDomain, removeDomain,
+  addDepartment, removeDepartment,
+};

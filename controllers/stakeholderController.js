@@ -77,7 +77,7 @@ async function updateStakeholder(req, res, next) {
         dept_id     = COALESCE(?, dept_id),
         active      = COALESCE(?, active)
        WHERE id = ? AND client_id = ?`,
-      [name, email ? email.toLowerCase().trim() : null, designation, level, dept_id || null,
+      [name ?? null, email ? email.toLowerCase().trim() : null, designation ?? null, level ?? null, dept_id || null,
        active !== undefined ? active : null, id, clientId]
     );
     return res.json({ success: true, message: "Stakeholder updated." });
