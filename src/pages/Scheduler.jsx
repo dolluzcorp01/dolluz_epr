@@ -3,12 +3,12 @@ import TopBar from "../components/TopBar";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import Toast from "../components/Toast";
-import { CYCLES_INIT, QUARTER_DEF, EMAIL_TEMPLATES_INIT, CC_INIT, INITIAL_EMAIL_STATE, CLIENT_COLORS, uid } from "../constants";
+import { QUARTER_DEF, CLIENT_COLORS, uid } from "../constants";
 import FieldRow from "../components/FieldRow";
 import { apiFetch } from "../utils/api";
 
 const NewCycleModal = ({ onAdd, onClose, existing }) => {
-  const [f, setF] = useState({ year: 2027, quarter: "", start: "", deadline: "", reminders: ["", ""] });
+  const [f, setF] = useState({ year: new Date().getFullYear() + 1, quarter: "", start: "", deadline: "", reminders: ["", ""] });
   const [touched, setTouched] = useState(false);
   const upd = (k, v) => setF(p => ({ ...p, [k]: v }));
 
@@ -238,7 +238,7 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
 };
 const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEmailState, setCycleEmailState }) => {
   const allYears = [...new Set((cycles || []).map(c => c.year))].sort().reverse();
-  const [selYear, setSelYear] = useState(2026);
+  const [selYear, setSelYear] = useState(new Date().getFullYear());
   const [showNew, setShowNew] = useState(false);
   const [editId, setEditId] = useState(null);
   const [expanded, setExpanded] = useState({});
@@ -611,7 +611,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
                 <div className="slide-down" style={{ borderTop: "1px solid #F1F5F9", background: "#FAFBFF" }}>
                   {clients.filter(cl => employees.some(e => e.allocations.some(a => a.clientId === cl.id))).map((cl, clIdx) => {
                     const clEmps = employees.filter(e => e.allocations.some(a => a.clientId === cl.id));
-                    const clColor = CLIENT_COLORS[cl.id] || "#64748B";
+                    const clColor = cl.color || cl.color_hex || CLIENT_COLORS[cl.id] || "#64748B";
                     const activeStakeholders = cl.stakeholders.filter(s => s.active);
                     // allSent = every active stakeholder has had review request sent
                     const allSent = activeStakeholders.length > 0 && activeStakeholders.every(sh => {

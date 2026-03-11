@@ -63,7 +63,7 @@ const EmailModule = ({ cycles, clients, employees, emailTemplates, setEmailTempl
       .replace(/{{quarter}}/g, quarter || "[Quarter]")
       .replace(/{{deadline}}/g, deadline || "[Deadline]")
       .replace(/{{portal_link}}/g, "https://portal.dolluz.com/review")
-      .replace(/{{admin_name}}/g, "Super Admin");
+      .replace(/{{admin_name}}/g, currentRole || "Admin");
   };
 
   return (
@@ -209,7 +209,7 @@ const EmailModule = ({ cycles, clients, employees, emailTemplates, setEmailTempl
                 {Object.entries(clientGroups).map(([clId, shEntries]) => {
                   const cl = (clients || []).find(c => c.id === clId);
                   const clName = cl ? cl.name : clId;
-                  const clColor = CLIENT_COLORS[clId] || "#64748B";
+                  const clColor = (cl && (cl.color || cl.color_hex)) || CLIENT_COLORS[clId] || "#64748B";
 
                   return (
                     <div key={clId} className="card" style={{ overflow: "hidden" }}>

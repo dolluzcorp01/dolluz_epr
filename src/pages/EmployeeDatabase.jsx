@@ -4,7 +4,7 @@ import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import FieldRow from "../components/FieldRow";
 import Toast from "../components/Toast";
-import { EMP_DB_INIT, uid } from "../constants";
+import { uid } from "../constants";
 import { apiFetch } from "../utils/api";
 
 const AddEmployeeModal = ({ onSave, onClose, existing }) => {
@@ -380,7 +380,7 @@ function normalizeEmployeeDetail(d) {
 // ─── Employee Database Component ──────────────────────────────────────────────
 
 const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEmpListProp, openAddModal, onAddModalClosed, onNewEmployee }) => {
-  const [empList, setEmpListLocal] = useState(empListProp || EMP_DB_INIT);
+  const [empList, setEmpListLocal] = useState(empListProp || []);
 
   // Sync when parent loads real API data
   useEffect(() => {

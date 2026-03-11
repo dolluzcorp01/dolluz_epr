@@ -4,7 +4,7 @@ import TopBar from "../components/TopBar";
 import KpiCard from "../components/KpiCard";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
-import { TREND_DATA, gapPct } from "../constants";
+import { gapPct } from "../constants";
 
 const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycles }) => {
   const reviews = allReviews || [];
@@ -19,6 +19,20 @@ const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycle
   // Active cycle label for subtitle
   const activeCycle = (cycles || []).find(c => c.status === "Active");
   const cycleLabel = activeCycle ? activeCycle.q + " · Review cycle in progress" : "No active cycle";
+
+  // Build trend chart from real cycle data (submitted vs total reviews per quarter)
+  const trendData = (cycles || [])
+    .filter(c => c.sent > 0 || c.submitted > 0)
+    .slice()
+    .sort((a, b) => {
+      if ((a.year || 0) !== (b.year || 0)) return (a.year || 0) - (b.year || 0);
+      return (a.quarter || 0) - (b.quarter || 0);
+    })
+    .map(c => ({
+      quarter: (c.q || "").split(" ")[0],
+      submitted: c.submitted || 0,
+      total: c.sent || 0,
+    }));
 
   // Derive score distribution from real review data
   const SCORE_DIST = [
@@ -60,7 +74,7 @@ const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycle
         <div className="card" style={{ padding: "22px 24px" }}>
           <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15, color: "#0D1B2A", marginBottom: 20 }}>Review Completion Trend</div>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={TREND_DATA} barSize={28}>
+            <BarChart data={trendData} barSize={28}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="quarter" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
@@ -72,7 +86,7 @@ const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycle
         </div>
         <div className="card" style={{ padding: "22px 24px" }}>
           <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15, color: "#0D1B2A", marginBottom: 4 }}>Score Distribution</div>
-          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Q1 2026</div>
+          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>{activeCycle ? activeCycle.q : "All cycles"}</div>
           <ResponsiveContainer width="100%" height={150}>
             <PieChart>
               <Pie data={SCORE_DIST} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>
@@ -93,7 +107,7 @@ const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycle
 
       <div className="card" style={{ padding: "22px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15, color: "#0D1B2A" }}>Q1 2026 — Review Status</div>
+          <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 15, color: "#0D1B2A" }}>{activeCycle ? activeCycle.q : "Current"} — Review Status</div>
           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setPage("reviews")}>View All →</button>
         </div>
         <table>

@@ -36,11 +36,11 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
     const avail = clients.filter(c => !used.includes(c.id) && c.status === "active");
     if (!avail.length) return;
     const c = avail[0];
-    setDrafts(p => [...p, { clientId: c.id, deptId: c.departments[0] ? c.departments[0].id : "", clientName: c.name, pct: Math.min(draftGap, 100), color: CLIENT_COLORS[c.id] || "#64748B", stakeholders: [] }]);
+    setDrafts(p => [...p, { clientId: c.id, deptId: c.departments[0] ? c.departments[0].id : "", clientName: c.name, pct: Math.min(draftGap, 100), color: c.color || c.color_hex || CLIENT_COLORS[c.id] || "#64748B", stakeholders: [] }]);
   };
   const remDraft = idx => setDrafts(p => p.filter((_, i) => i !== idx));
   const updPct = (idx, v) => setDrafts(p => p.map((a, i) => i === idx ? { ...a, pct: Math.max(0, Math.min(100, Number(v))) } : a));
-  const updClient = (idx, cid) => { const c = clients.find(x => x.id === cid); setDrafts(p => p.map((a, i) => i === idx ? { ...a, clientId: cid, clientName: c ? c.name : "", deptId: (c && c.departments[0]) ? c.departments[0].id : "", color: CLIENT_COLORS[cid] || "#64748B", stakeholders: [] } : a)); };
+  const updClient = (idx, cid) => { const c = clients.find(x => x.id === cid); setDrafts(p => p.map((a, i) => i === idx ? { ...a, clientId: cid, clientName: c ? c.name : "", deptId: (c && c.departments[0]) ? c.departments[0].id : "", color: (c && (c.color || c.color_hex)) || CLIENT_COLORS[cid] || "#64748B", stakeholders: [] } : a)); };
   const updDept = (idx, did) => setDrafts(p => p.map((a, i) => i === idx ? { ...a, deptId: did } : a));
 
   const updStakeholderPct = (draftIdx, shId, rawVal, maxPct) => {

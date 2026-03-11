@@ -33,6 +33,9 @@ async function listEmployees(req, res, next) {
       params.push(client_id);
     }
 
+    const limitInt  = parseInt(limit)  || 50;
+    const offsetInt = parseInt(offset) || 0;
+
     const sql = `
       SELECT
         e.id, e.code, e.name, e.official_email, e.primary_phone,
@@ -46,9 +49,8 @@ async function listEmployees(req, res, next) {
       ${where}
       GROUP BY e.id
       ORDER BY e.name
-      LIMIT ? OFFSET ?
+      LIMIT ${limitInt} OFFSET ${offsetInt}
     `;
-    params.push(parseInt(limit), offset);
 
     const [rows]        = await db.execute(sql, params);
     const [[{ total }]] = await db.execute(

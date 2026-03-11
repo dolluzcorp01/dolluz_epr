@@ -41,7 +41,8 @@ async function listAllocations(req, res, next) {
     `);
 
     const data = await Promise.all(rows.map(async r => {
-      const allocs = JSON.parse(r.allocations || "[]").filter(a => a.allocation_id !== null);
+      const raw = typeof r.allocations === "string" ? JSON.parse(r.allocations || "[]") : (r.allocations || []);
+      const allocs = raw.filter(a => a.allocation_id !== null);
 
       const enriched = await Promise.all(allocs.map(async a => {
         const [splits] = await db.execute(`

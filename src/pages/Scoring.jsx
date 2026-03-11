@@ -4,7 +4,7 @@ import TopBar from "../components/TopBar";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import Toast from "../components/Toast";
-import { QUARTER_SCORES, ACTIVE_QUARTER, COMP_INIT, CLIENT_COLORS } from "../constants";
+import { CLIENT_COLORS } from "../constants";
 import { apiFetch } from "../utils/api";
 
 
@@ -21,11 +21,12 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
   const activeCycle = (cycles || []).find(c => c.status === "Active");
   const [selCycId, setSelCycId] = useState(activeCycle ? activeCycle.id : (scoringCycles.length > 0 ? scoringCycles[0].id : ""));
   const selCycle = (cycles || []).find(c => c.id === selCycId) || null;
-  const quarter = selCycle ? selCycle.q : ACTIVE_QUARTER;
+  const quarter = selCycle ? selCycle.q : "";
   const isHistorical = selCycle ? !!selCycle.closed : false;
 
-  const allQtrs = Object.keys(QUARTER_SCORES);
-  const [comps, setComps] = useState(COMP_INIT.map(c => ({ ...c })));
+  // All available quarters from cycles prop (most recent first → reverse for chronological)
+  const allQtrs = scoringCycles.map(c => c.q).filter(Boolean);
+  const [comps, setComps] = useState([]);
   const [empScores, setEmpScores] = useState([]);
   const [scoringLoading, setScoringLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -57,7 +58,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
       .then(r => r.json())
       .then(d => {
         if (d.success && d.data) {
-          const qt = selCycle ? selCycle.q : ACTIVE_QUARTER;
+          const qt = selCycle ? selCycle.q : "";
           const rows = d.data.map(row => ({
             code:         row.employee_code,
             name:         row.employee_name,
@@ -120,9 +121,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
     },
   ];
 
-  // empScores: use API data when available, fall back to hardcoded constants for historical display
-  const staticScores = QUARTER_SCORES[quarter] || [];
-  const displayScores = empScores.length > 0 ? empScores : staticScores;
+  // empScores: use API data only — no hardcoded fallback
+  const displayScores = empScores;
   const MULT = 6;
   const totalW = comps.reduce((s, c) => s + Number(c.weight), 0);
   const weightOk = totalW === 100;
@@ -294,13 +294,21 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
   const allLocked = scoredEmps.length > 0 && lockedEmps.length === scoredEmps.length;
   const publishReady = allHiked;
 
-  // ── Trend ────────────────────────────────────────────────────────────────────
+  // ── Trend ─────────────────────────────────────────────────────────────────────
+  // Show the currently loaded cycle scores as a single trend point (historical
+  // multi-quarter trend requires fetching scoring data per quarter via API)
   const chronoQtrs = [...allQtrs].reverse();
   const trendData = displayScores.map(e => ({
     name: e.name, code: e.code,
     trend: chronoQtrs.map(q => {
-      const entry = (QUARTER_SCORES[q] || []).find(x => x.code === e.code);
-      return { q: q.split(" ")[0] + " '" + q.split(" ")[1].slice(2), score: entry ? entry.score : null, hike: entry ? entry.approvedHike : null };
+      // Only the currently selected cycle has loaded score data
+      const entry = (quarter && q === quarter) ? empScores.find(x => x.code === e.code) : null;
+      const hikeVal = entry ? ((scoringHikes[quarter] || {})[e.code] || entry.approvedHike) : null;
+      return {
+        q: (q || "").split(" ")[0] + " '" + ((q || "").split(" ")[1] || "").slice(2),
+        score: entry ? entry.score : null,
+        hike:  hikeVal,
+      };
     })
   }));
 

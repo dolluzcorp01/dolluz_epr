@@ -4,7 +4,7 @@ import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import FieldRow from "../components/FieldRow";
 import Toast from "../components/Toast";
-import { REVIEWS_DATA, uid, CLIENT_COLORS } from "../constants";
+import { uid, CLIENT_COLORS } from "../constants";
 import { apiFetch } from "../utils/api";
 
 const SHTable = ({ rows, onUpdate, onDelete, onToggle, activeEmails = [], primaryStakeholderId, onSetPrimary }) => {
@@ -426,7 +426,7 @@ const AddClientModal = ({ onAdd, onClose }) => {
   );
 };
 
-const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
+const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps }) => {
   const [selId, setSelId] = useState(() => clients[0]?.id || "CL001");
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState("");
@@ -456,7 +456,7 @@ const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
           } : c));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [selId]); // eslint-disable-line
 
   // Sync selId when clients list first loads from API
@@ -466,13 +466,13 @@ const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
     }
   }, [clients]); // eslint-disable-line
 
-  const client = clients.find(c => c.id === selId) || clients[0];
+  const client = clients.find(c => c.id === selId) || clients[0] || null;
   const clientSH = (client?.stakeholders || []).filter(s => s.level === "client");
   const deptSH = did => (client?.stakeholders || []).filter(s => s.level === "dept" && s.deptId === did);
   const empCount = cid => employees.filter(e => (e.allocations || []).some(a => a.clientId === cid)).length;
-  const activeEmails = REVIEWS_DATA
+  const activeEmails = (allReviews || [])
     .filter(r => (r.client || "").includes((client?.name || "").split(" ")[0]) && ["Email Sent", "In Progress", "Submitted"].includes(r.status))
-    .map(r => r.stakeholderEmail);
+    .map(r => r.stakeholderEmail || r.stakeholder_email || "");
 
   const addSH = async (level, deptId = null) => {
     const newId = "S" + uid();
@@ -481,17 +481,17 @@ const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
       const res = await apiFetch(`/api/clients/${selId}/stakeholders`, { method: "POST", body: JSON.stringify({ name: "", email: "", designation: "", level: level || "client" }) });
       const d = await res.json();
       if (d.success && d.data) setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === newId ? { ...s, id: String(d.data.id) } : s) } : c));
-    } catch (e) {}
+    } catch (e) { }
   };
   const updateSH = (sid, fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === sid ? { ...s, [fld]: v } : s) } : c));
   const deleteSH = async (sid) => {
     setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.filter(s => s.id !== sid) } : c));
-    try { await apiFetch(`/api/clients/${selId}/stakeholders/${sid}`, { method: "DELETE" }); } catch (e) {}
+    try { await apiFetch(`/api/clients/${selId}/stakeholders/${sid}`, { method: "DELETE" }); } catch (e) { }
   };
   const toggleSH = sid => setClients(cs => cs.map(c => c.id === selId ? { ...c, stakeholders: c.stakeholders.map(s => s.id === sid ? { ...s, active: !s.active } : s) } : c));
   const setPrimary = async (sid) => {
     setClients(cs => cs.map(c => c.id === selId ? { ...c, primaryStakeholderId: sid } : c));
-    try { await apiFetch(`/api/clients/${selId}/primary-stakeholder`, { method: "PUT", body: JSON.stringify({ stakeholder_id: sid }) }); } catch (e) {}
+    try { await apiFetch(`/api/clients/${selId}/primary-stakeholder`, { method: "PUT", body: JSON.stringify({ stakeholder_id: sid }) }); } catch (e) { }
   };
   const updateStat = v => setClients(cs => cs.map(c => c.id === selId ? { ...c, status: v } : c));
   const updatePC = (fld, v) => setClients(cs => cs.map(c => c.id === selId ? { ...c, primaryContact: { ...c.primaryContact, [fld]: v } } : c));
@@ -502,7 +502,7 @@ const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
   const deleteClient = async () => {
     const rem = clients.filter(c => c.id !== selId);
     setClients(rem); setSelId(rem[0] ? rem[0].id : ""); setConfirmDel(false); showToast("Client deleted");
-    try { await apiFetch(`/api/clients/${selId}`, { method: "DELETE" }); } catch (e) {}
+    try { await apiFetch(`/api/clients/${selId}`, { method: "DELETE" }); } catch (e) { }
   };
   const addClient = async (nc) => {
     setClients(p => [...p, nc]); setSelId(nc.id); setShowAdd(false); showToast("Client created");
@@ -510,8 +510,15 @@ const ClientConfig = ({ clients, setClients, employees, topBarProps }) => {
       const res = await apiFetch("/api/clients", { method: "POST", body: JSON.stringify({ name: nc.name, industry: nc.industry || "", notes: nc.notes || "" }) });
       const d = await res.json();
       if (d.success && d.data) setClients(cs => cs.map(c => c.id === nc.id ? { ...c, id: d.data.id, code: d.data.code } : c));
-    } catch (e) {}
+    } catch (e) { }
   };
+
+  if (!client) return (
+    <div className="fade-in">
+      <TopBar title="Client Configuration" subtitle="Manage clients, departments, authorised domains and stakeholder assignments" {...topBarProps} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "#94A3B8", fontSize: 14 }}>No clients found.</div>
+    </div>
+  );
 
   return (
     <div className="fade-in">

@@ -13,13 +13,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
   const showToast = (msg, c) => { setToast({ msg, color: c || "#0D1B2A" }); setTimeout(() => setToast(""), 2800); };
 
   // ── User management state ──
-  const [users, setUsers] = useState([
-    { id: "U1", name: "Super Admin", email: "admin@dolluz.com", role: "Super Admin", status: "Active", lastLogin: "Mar 07, 2026 09:12", avatar: "S", assignedClients: [], assignedStakeholders: [] },
-    { id: "U2", name: "Arjun K", email: "arjun.k@dolluz.com", role: "Admin", status: "Active", lastLogin: "Mar 07, 2026 08:55", avatar: "A", assignedClients: [], assignedStakeholders: [] },
-    { id: "U3", name: "Vijay S", email: "vijay.s@dolluz.com", role: "Sub-Admin", status: "Active", lastLogin: "Mar 06, 2026 17:30", avatar: "V", assignedClients: ["CL001"], assignedStakeholders: ["S1"] },
-    { id: "U4", name: "Meena T", email: "meena.t@dolluz.com", role: "Sub-Admin", status: "Active", lastLogin: "Mar 05, 2026 14:20", avatar: "M", assignedClients: ["CL003"], assignedStakeholders: ["S7"] },
-    { id: "U5", name: "Ravi Ops", email: "ravi.ops@dolluz.com", role: "Sub-Admin", status: "Inactive", lastLogin: "Feb 20, 2026 09:00", avatar: "R", assignedClients: ["CL002"], assignedStakeholders: [] },
-  ]);
+  const [users, setUsers] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [resetPwdUser, setResetPwdUser] = useState(null);
@@ -99,15 +93,11 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
   };
 
   // ── Announcements state ──
-  const [announcements, setAnnouncements] = useState([
-    { id: "AN1", title: "Q1 2026 EPR Cycle is now Active", body: "Review cycle has started. Please check your assigned employees and ensure stakeholders are notified.", author: "Super Admin", date: "Jan 15, 2026", priority: "High", read: 3 },
-    { id: "AN2", title: "New Scoring Weights Effective Q1 2026", body: "Competency weights have been updated. Quality of Delivery now carries 30% weight. Please review the Scoring module for details.", author: "Arjun K", date: "Jan 10, 2026", priority: "Medium", read: 5 },
-    { id: "AN3", title: "System Maintenance — Mar 10, 2026", body: "Portal will be unavailable from 2:00 AM to 4:00 AM IST for scheduled maintenance.", author: "Super Admin", date: "Mar 05, 2026", priority: "Low", read: 4 },
-  ]);
+  const [announcements, setAnnouncements] = useState([]);
   const [newAnn, setNewAnn] = useState({ title: "", body: "", priority: "Medium" });
   const postAnnouncement = () => {
     if (!newAnn.title || !newAnn.body) { showToast("Title and message are required", "#EF4444"); return; }
-    setAnnouncements(p => [{ id: "AN" + uid(), ...newAnn, author: "Super Admin", date: "Mar 07, 2026", read: 0 }, ...p]);
+    setAnnouncements(p => [{ id: "AN" + uid(), ...newAnn, author: profile.name || "Admin", date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }), read: 0 }, ...p]);
     setNewAnn({ title: "", body: "", priority: "Medium" });
     showToast("Announcement posted to all sub-users", "#10B981");
   };
@@ -386,7 +376,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                                 onChange={() => toggleClient(cl.id)}
                                 style={{ width: 15, height: 15, accentColor: "#8B5CF6" }} />
                               <label htmlFor={"cl_" + cl.id} style={{ fontSize: 13, fontWeight: 700, color: "#1E293B", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ width: 10, height: 10, borderRadius: "50%", background: CLIENT_COLORS[cl.id] || "#64748B", display: "inline-block" }} />
+                                <span style={{ width: 10, height: 10, borderRadius: "50%", background: cl.color || cl.color_hex || CLIENT_COLORS[cl.id] || "#64748B", display: "inline-block" }} />
                                 {cl.name}
                               </label>
                             </div>
@@ -546,12 +536,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                 </div>
                 <div style={{ marginTop: 16, background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "12px 14px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Audit Log</div>
-                  {[
-                    "Mar 07, 2026 09:12 — Super Admin logged in",
-                    "Mar 07, 2026 08:55 — Arjun K logged in",
-                    "Mar 06, 2026 17:30 — Vijay S updated employee record",
-                    "Mar 06, 2026 16:00 — Super Admin added new user Priya HR",
-                  ].map((l, i) => <div key={i} style={{ fontSize: 11, color: "#166534", marginBottom: 3 }}>{l}</div>)}
+                  <div style={{ fontSize: 11, color: "#166534" }}>Audit log entries will appear here as users take actions in the portal.</div>
                 </div>
               </div>
             </div>
@@ -703,8 +688,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
               {[
                 { title: "OTP Configuration", icon: "&#128274;", fields: [["OTP Validity (minutes)", "10"], ["Max OTP attempts", "3"], ["Resend cooldown (seconds)", "60"]] },
                 { title: "Link Expiry", icon: "&#9201;", fields: [["Review link expiry (days)", "30"], ["Reactivation window (days)", "7"], ["OTP link expiry (minutes)", "10"]] },
-                { title: "Email Configuration", icon: "&#128231;", fields: [["SMTP / Service", "SendGrid"], ["Sender name", "Dolluz Corp"], ["Reply-to", "admin@dolluz.com"]] },
-                { title: "Branding", icon: "&#127912;", fields: [["Company name", "Dolluz Corp"], ["Portal title", "EPR Portal"], ["Primary colour", "#E8520A"]] },
+                { title: "Email Configuration", icon: "&#128231;", fields: [["SMTP / Service", ""], ["Sender name", ""], ["Reply-to", ""]] },
+                { title: "Branding", icon: "&#127912;", fields: [["Company name", ""], ["Portal title", "EPR Portal"], ["Primary colour", "#E8520A"]] },
               ].map((s, i) => (
                 <div key={i} className="card" style={{ padding: "22px 24px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>

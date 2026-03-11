@@ -3,7 +3,7 @@ import TopBar from "../components/TopBar";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import Toast from "../components/Toast";
-import { ALL_REVIEWS, EMAIL_TEMPLATES_INIT, CLIENT_COLORS, gapPct, totalPct } from "../constants";
+import { CLIENT_COLORS, gapPct, totalPct } from "../constants";
 import { apiFetch } from "../utils/api";
 
 const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailState, allReviews, emailTemplates, scoringLocked, bulkRequestedCycles, setBulkRequestedCycles, topBarProps }) => {
@@ -96,7 +96,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     if (!selCycle) return "Not Started";
     // If this employee's row is locked in Scoring, all their stakeholder rows = Closed
     if (scoringLocked && scoringLocked[selCycle.q] && scoringLocked[selCycle.q][emp.code]) return "Closed";
-    const rev = (allReviews || ALL_REVIEWS).find(r =>
+    const rev = (allReviews || []).find(r =>
       r.empId === emp.code && r.client === cl.name && r.stakeholder === sh.name && r.quarter === selCycle.q
     );
     if (rev) {
@@ -135,7 +135,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       ? cl.primaryStakeholderId
       : ((cl.stakeholders.filter(s => s.active && s.level === "client")[0]) || {}).id;
 
-    const reviews = allReviews || ALL_REVIEWS;
+    const reviews = allReviews || [];
 
     return active.filter(sh => {
       // Client-level primary — always show; admin needs to be able to dispatch
@@ -217,7 +217,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     else { const n = {}; filteredEmps.forEach(e => { n[e.id] = true; }); setExpanded(n); }
   };
 
-  const closedRecords = selCycle ? (allReviews || ALL_REVIEWS).filter(r => r.quarter === selCycle.q) : [];
+  const closedRecords = selCycle ? (allReviews || []).filter(r => r.quarter === selCycle.q) : [];
 
   // ── Template-driven preview — pulls from emailTemplates (same source as Email Module) ──
   const TYPE_TO_TEMPLATE = {
@@ -231,7 +231,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     if (!previewModal) return "";
     const { shName, empList, type, quarter, deadline } = previewModal;
     const tplType = TYPE_TO_TEMPLATE[type] || "request_review";
-    const tplList = emailTemplates || EMAIL_TEMPLATES_INIT;
+    const tplList = emailTemplates || [];
     const tpl = tplList.find(t => t.type === tplType) || tplList[0];
     if (!tpl) return "";
     // Build numbered employee list
@@ -250,7 +250,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     if (!previewModal) return "";
     const { type, quarter, deadline } = previewModal;
     const tplType = TYPE_TO_TEMPLATE[type] || "request_review";
-    const tplList = emailTemplates || EMAIL_TEMPLATES_INIT;
+    const tplList = emailTemplates || [];
     const tpl = tplList.find(t => t.type === tplType) || tplList[0];
     if (!tpl) return "";
     return tpl.subject
@@ -451,7 +451,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
                       {/* Per-client status badges */}
                       {clientBadges.length === 0 && <RevStatusBadge status="Not Started" />}
                       {clientBadges.map(cb => {
-                        const clColor = CLIENT_COLORS[cb.cl.id] || "#64748B";
+                        const clColor = cb.cl.color || cb.cl.color_hex || CLIENT_COLORS[cb.cl.id] || "#64748B";
                         const sc = STATUS_CLR[cb.badge] || STATUS_CLR["Not Started"];
                         return (
                           <span key={cb.cl.id} style={{
@@ -518,7 +518,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
                     {allocatedCl.map((alloc, aIdx) => {
                       const cl = (clients || []).find(c => c.id === alloc.clientId);
                       if (!cl) return null;
-                      const clColor = CLIENT_COLORS[cl.id] || "#64748B";
+                      const clColor = cl.color || cl.color_hex || CLIENT_COLORS[cl.id] || "#64748B";
                       const shs = getEmpStakeholders(emp, cl);
 
                       return (

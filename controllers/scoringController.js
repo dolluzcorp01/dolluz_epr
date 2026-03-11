@@ -140,7 +140,7 @@ async function lockScore(req, res, next) {
 // ── GET /api/scoring/competencies ─────────────────────────────────────────────
 async function listCompetencies(req, res, next) {
   try {
-    const [rows] = await db.execute("SELECT * FROM competencies ORDER BY display_order");
+    const [rows] = await db.execute("SELECT * FROM competencies ORDER BY id");
     return res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 }

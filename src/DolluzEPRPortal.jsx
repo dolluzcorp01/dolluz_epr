@@ -14,11 +14,8 @@ import { NewCycleModal } from "./pages/Scheduler";
 import EmployeeDatabase from "./pages/EmployeeDatabase";
 import Settings from "./pages/Settings";
 import EmailModule from "./pages/EmailModule";
-import {
-  CLIENTS_INIT, EMPLOYEES_INIT, CYCLES_INIT, EMP_DB_INIT,
-  EMAIL_TEMPLATES_INIT, CC_INIT, INITIAL_EMAIL_STATE, ALL_REVIEWS,
-  gapPct, buildNotifications
-} from "./constants";
+import Reports from "./pages/Reports";
+import { gapPct, buildNotifications } from "./constants";
 import { apiFetch } from "./utils/api";
 
 // ── Data normalizers ───────────────────────────────────────────────────────────
@@ -103,6 +100,33 @@ function normalizeAllocEmployee(e) {
   };
 }
 
+// ── Employee list normalizer (list endpoint returns snake_case) ────────────────
+function normalizeEmpListItem(e) {
+  return {
+    ...e,
+    designation: e.designation || e.role || "",
+    officialEmail: e.official_email || e.officialEmail || "",
+    personalEmail: e.personal_email || e.personalEmail || "",
+    primaryPhone: e.primary_phone || e.primaryPhone || "",
+    secondaryPhone: e.secondary_phone || e.secondaryPhone || "",
+    bloodGroup: e.blood_group || e.bloodGroup || "",
+    joinDate: e.joining_date
+      ? String(e.joining_date).split("T")[0]
+      : (e.joinDate || ""),
+    reportingManager: e.reporting_manager || e.reportingManager || "",
+    status: e.active != null
+      ? (Number(e.active) ? "Active" : "Inactive")
+      : (e.status || "Active"),
+    currentAddr: e.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
+    permanentAddr: e.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
+    education: Array.isArray(e.education) ? e.education : [],
+    workHistory: Array.isArray(e.workHistory) ? e.workHistory : [],
+    skills: Array.isArray(e.skills)
+      ? e.skills.map(s => typeof s === "string" ? s : (s.skill_name || ""))
+      : [],
+  };
+}
+
 const VALID_PAGES = ["dashboard", "clients", "resources", "employees", "reviews", "scoring", "scheduler", "email", "reports", "settings"];
 
 export default function DolluzEPRPortal() {
@@ -120,22 +144,29 @@ export default function DolluzEPRPortal() {
   }, [navigate]);
 
   // Sync state when user navigates with browser back/forward
+  // Also handle /login URL: redirect to /dashboard if signed in, else show LoginScreen
   useEffect(() => {
     const p = location.pathname.replace(/^\//, "") || "dashboard";
+    if (p === "login") {
+      if (!signedOut) navigate("/dashboard", { replace: true });
+      return;
+    }
     if (VALID_PAGES.includes(p) && p !== page) setPageState(p);
   }, [location.pathname]); // eslint-disable-line
-  const [clients, setClients] = useState(CLIENTS_INIT);
-  const [employees, setEmployees] = useState(EMPLOYEES_INIT);
-  const [cycles, setCycles] = useState(CYCLES_INIT);
+  const [clients, setClients] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [cycles, setCycles] = useState([]);
   const [showNewCycle, setShowNewCycle] = useState(false);
-  const [empList, setEmpList] = useState(EMP_DB_INIT);
+  const [empList, setEmpList] = useState([]);
   const [showAddEmp, setShowAddEmp] = useState(false);
   const [signedOut, setSignedOut] = useState(!localStorage.getItem("epr_token"));
-  const [emailTemplates, setEmailTemplates] = useState(EMAIL_TEMPLATES_INIT);
-  const [ccList, setCcList] = useState(CC_INIT);
-  const [cycleEmailState, setCycleEmailState] = useState(INITIAL_EMAIL_STATE);
+  // True while initial data load is in progress (only on reload/direct nav, not after login)
+  const [appLoading, setAppLoading] = useState(!!localStorage.getItem("epr_token"));
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [ccList, setCcList] = useState([]);
+  const [cycleEmailState, setCycleEmailState] = useState({});
   const [bulkRequestedCycles, setBulkRequestedCycles] = useState({});
-  const [allReviews, setAllReviews] = useState(ALL_REVIEWS.slice());
+  const [allReviews, setAllReviews] = useState([]);
   const [scoringHikes, setScoringHikes] = useState({});
   const [scoringLocked, setScoringLocked] = useState({});
 
@@ -153,6 +184,10 @@ export default function DolluzEPRPortal() {
   useEffect(() => {
     if (signedOut) return;
 
+    let clientsDone = false;
+    let allocsDone = false;
+    const maybeReady = () => { if (clientsDone && allocsDone) setAppLoading(false); };
+
     // Clients — fetch list then full data per client (to get stakeholders + departments)
     apiFetch("/api/clients")
       .then(r => r.json())
@@ -168,7 +203,8 @@ export default function DolluzEPRPortal() {
         );
         setClients(fullClients);
       })
-      .catch(() => { });
+      .catch(() => { })
+      .finally(() => { clientsDone = true; maybeReady(); });
 
     // Allocations — use as source of truth for employees (has full allocation shapes)
     apiFetch("/api/allocations")
@@ -176,12 +212,13 @@ export default function DolluzEPRPortal() {
       .then(d => {
         if (d.success && d.data) setEmployees(d.data.map(normalizeAllocEmployee));
       })
-      .catch(() => { });
+      .catch(() => { })
+      .finally(() => { allocsDone = true; maybeReady(); });
 
     // Employees full list for EmployeeDatabase page
     apiFetch("/api/employees?limit=500")
       .then(r => r.json())
-      .then(d => { if (d.success && d.data) setEmpList(d.data); })
+      .then(d => { if (d.success && d.data) setEmpList(d.data.map(normalizeEmpListItem)); })
       .catch(() => { });
 
     // Cycles + email dispatch state for active cycle
@@ -232,14 +269,14 @@ export default function DolluzEPRPortal() {
         if (d.success && u) {
           setAdminProfile(p => ({
             ...p,
-            name:        u.name        || p.name,
-            email:       u.email       || p.email,
-            phone:       u.phone       || p.phone,
+            name: u.name || p.name,
+            email: u.email || p.email,
+            phone: u.phone || p.phone,
             designation: u.designation || p.designation,
-            timezone:    u.timezone    || p.timezone,
-            company:     u.company     || p.company,
-            role:        u.role        || p.role,
-            avatar:      (u.avatar_initials) || (u.name || p.name || "?")[0].toUpperCase(),
+            timezone: u.timezone || p.timezone,
+            company: u.company || p.company,
+            role: u.role || p.role,
+            avatar: (u.avatar_initials) || (u.name || p.name || "?")[0].toUpperCase(),
           }));
         }
       })
@@ -248,7 +285,7 @@ export default function DolluzEPRPortal() {
 
   const leakageCount = employees.filter(e => gapPct(e) > 0).length;
   const reviewCount = allReviews.filter(r => ["Pending", "Email Sent", "In Progress", "Overdue"].includes(r.status)).length;
-  const notifications = buildNotifications(employees, cycles);
+  const notifications = buildNotifications(employees, cycles, allReviews);
 
   const onNewEmployee = emp => {
     setEmployees(p => [...p, {
@@ -275,7 +312,7 @@ export default function DolluzEPRPortal() {
 
   const pages = {
     dashboard: <Dashboard employees={employees} setPage={setPage} topBarProps={topBarProps} allReviews={allReviews} clients={clients} cycles={cycles} />,
-    clients: <ClientConfig clients={clients} setClients={setClients} employees={employees} topBarProps={topBarProps} />,
+    clients: <ClientConfig clients={clients} setClients={setClients} employees={employees} allReviews={allReviews} topBarProps={topBarProps} />,
     resources: <AllocationPage clients={clients} employees={employees} setEmployees={setEmployees} topBarProps={topBarProps}
       onAddNewEmployee={() => { setPage("employees"); setShowAddEmp(true); }} />,
     employees: <EmployeeDatabase topBarProps={topBarProps} empList={empList} setEmpList={setEmpList}
@@ -284,29 +321,7 @@ export default function DolluzEPRPortal() {
     scoring: <Scoring topBarProps={topBarProps} cycles={cycles} setCycles={setCycles} clients={clients} employees={employees} cycleEmailState={cycleEmailState} allReviews={allReviews} setAllReviews={setAllReviews} scoringHikes={scoringHikes} setScoringHikes={setScoringHikes} scoringLocked={scoringLocked} setScoringLocked={setScoringLocked} />,
     scheduler: <Scheduler employees={employees} cycles={cycles} setCycles={setCycles} clients={clients} topBarProps={topBarProps} cycleEmailState={cycleEmailState} setCycleEmailState={setCycleEmailState} />,
     email: <EmailModule cycles={cycles} clients={clients} employees={employees} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} ccList={ccList} setCcList={setCcList} cycleEmailState={cycleEmailState} currentRole={adminProfile.role || "Super Admin"} topBarProps={topBarProps} />,
-    reports: (
-      <div className="fade-in">
-        <TopBar title="Reports" subtitle="Exportable EPR reports — cycle summaries, hike analytics and audit trails" {...topBarProps} />
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          minHeight: 420, gap: 18, background: "#fff", borderRadius: 14, border: "1.5px dashed #CBD5E1"
-        }}>
-          <div style={{ fontSize: 48 }}>&#128200;</div>
-          <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 20, color: "#0D1B2A" }}>Reports — Coming Soon</div>
-          <div style={{ fontSize: 13, color: "#64748B", maxWidth: 380, textAlign: "center", lineHeight: 1.7 }}>
-            Cycle summary reports, hike distribution analytics, stakeholder response rates and full audit trails will be available here.
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            {["Cycle Summary", "Hike Analytics", "Stakeholder Report", "Audit Trail", "Export PDF", "Export Excel"].map(r => (
-              <span key={r} style={{
-                fontSize: 12, fontWeight: 600, background: "#F8FAFC", color: "#475569",
-                border: "1.5px solid #E2E8F0", borderRadius: 8, padding: "6px 14px"
-              }}>{r}</span>
-            ))}
-          </div>
-        </div>
-      </div>
-    ),
+    reports: <Reports topBarProps={topBarProps} employees={employees} allReviews={allReviews} clients={clients} cycles={cycles} />,
     settings: <Settings topBarProps={topBarProps} profile={adminProfile} setProfile={setAdminProfile} clients={clients} currentRole={adminProfile.role || "Super Admin"} />,
   };
 
@@ -316,6 +331,7 @@ export default function DolluzEPRPortal() {
 
       {signedOut ? (
         <LoginScreen onLogin={(tok, user) => {
+          setAppLoading(false);
           setSignedOut(false);
           if (user) setAdminProfile(p => ({
             ...p,
@@ -325,10 +341,16 @@ export default function DolluzEPRPortal() {
           }));
           navigate("/dashboard", { replace: true });
         }} />
+      ) : appLoading ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F0F4F8", flexDirection: "column", gap: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", border: "4px solid #E8520A", borderTopColor: "transparent", animation: "spin 0.8s linear infinite" }} />
+          <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>Loading portal…</div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
       ) : (
         <div style={{ display: "flex", minHeight: "100vh", background: "#F0F4F8" }}>
           <Sidebar active={page} setActive={setPage} leakageCount={leakageCount} reviewCount={reviewCount}
-            onSignOut={() => { localStorage.removeItem("epr_token"); setSignedOut(true); navigate("/", { replace: true }); }}
+            onSignOut={() => { localStorage.removeItem("epr_token"); setSignedOut(true); setAppLoading(false); navigate("/", { replace: true }); }}
             profile={adminProfile} setProfile={setAdminProfile} />
           <main style={{ marginLeft: 236, flex: 1, padding: "28px 32px", minHeight: "100vh" }}>
             {pages[page]}
