@@ -10,7 +10,8 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
   const [empSel, setEmpSel] = useState(null);
   const [drafts, setDrafts] = useState([]);
   const [toast, setToast] = useState("");
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2400); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   const counts = {
     all: employees.length,
@@ -57,7 +58,7 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
     setDrafts(p => p.map((a, i) => i === draftIdx ? { ...a, stakeholders: [] } : a));
   };
   const saveDrafts = async eid => {
-    if (draftTotal > 100) { showToast("Total exceeds 100% — please fix"); return; }
+    if (draftTotal > 100) { showToast("Total exceeds 100% — please fix", "error"); return; }
     const badSplit = drafts.find(a => {
       if (!a.stakeholders || a.stakeholders.length === 0) return false;
       const shTotal = a.stakeholders.reduce((s, x) => s + Number(x.pct), 0);
@@ -65,7 +66,7 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
     });
     if (badSplit) {
       const cl = clients.find(c => c.id === badSplit.clientId);
-      showToast("Stakeholder split for " + (cl ? cl.name.split(" ")[0] : "client") + " must total " + badSplit.pct + "%"); return;
+      showToast("Stakeholder split for " + (cl ? cl.name.split(" ")[0] : "client") + " must total " + badSplit.pct + "%", "error"); return;
     }
     const prevEmployees = [...employees];
     setEmployees(p => p.map(e => e.id === eid ? { ...e, allocations: drafts } : e));
@@ -75,13 +76,13 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
       const d = await res.json();
       if (!d.success) {
         setEmployees(prevEmployees);
-        showToast("Error: " + (d.message || "Save failed"), "#EF4444");
+        showToast("Error: " + (d.message || "Save failed"), "error");
         return;
       }
       showToast("Allocation saved", "#10B981");
     } catch (e) {
       setEmployees(prevEmployees);
-      showToast("Network error — allocation not saved", "#EF4444");
+      showToast("Network error — allocation not saved", "error");
     }
   };
 
@@ -359,7 +360,7 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
           );
         })}
       </div>
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };

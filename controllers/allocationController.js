@@ -86,53 +86,73 @@ async function getLeakage(req, res, next) {
 }
 
 // ── POST /api/allocations ─────────────────────────────────────────────────────
+// Accepts batch format: { employee_id, allocations: [{clientId, deptId, pct, stakeholders:[{stakeholderId, pct}]}] }
+// Replaces ALL existing active allocations for this employee atomically.
 async function createAllocation(req, res, next) {
-  const { employee_id, client_id, dept_id, pct, start_date, end_date, stakeholders } = req.body;
+  const { employee_id, allocations } = req.body;
 
-  if (!employee_id || !client_id || !pct) {
-    return res.status(400).json({ success: false, message: "employee_id, client_id, and pct are required." });
+  if (!employee_id || !Array.isArray(allocations) || allocations.length === 0) {
+    return res.status(400).json({ success: false, message: "employee_id and allocations array are required." });
   }
-  if (pct < 1 || pct > 100) {
-    return res.status(400).json({ success: false, message: "pct must be 1–100." });
+
+  // Validate total pct
+  const totalPct = allocations.reduce((s, a) => s + Number(a.pct || 0), 0);
+  if (totalPct > 100) {
+    return res.status(400).json({ success: false, message: `Total allocation ${totalPct}% exceeds 100%.` });
   }
-  if (stakeholders && stakeholders.length > 0) {
-    const splitSum = stakeholders.reduce((s, x) => s + Number(x.pct), 0);
-    if (splitSum > 100) {
-      return res.status(400).json({ success: false, message: `Stakeholder pct values must not exceed 100 (got ${splitSum}).` });
+
+  // Validate each entry
+  for (const a of allocations) {
+    const clientId = a.clientId || a.client_id;
+    const pct = Number(a.pct);
+    if (!clientId || !pct || pct < 1 || pct > 100) {
+      return res.status(400).json({ success: false, message: "Each allocation needs a valid clientId and pct (1–100)." });
+    }
+    if (a.stakeholders && a.stakeholders.length > 0) {
+      const splitSum = a.stakeholders.reduce((s, x) => s + Number(x.pct || 0), 0);
+      if (splitSum > Number(a.pct)) {
+        return res.status(400).json({ success: false, message: `Stakeholder split (${splitSum}%) exceeds allocation pct (${a.pct}%) for client ${clientId}.` });
+      }
     }
   }
 
   try {
-    const [[{ current }]] = await db.execute(
-      "SELECT COALESCE(SUM(pct), 0) AS current FROM employee_allocations WHERE employee_id = ? AND is_active = 1",
+    // Deactivate all existing allocations for this employee
+    await db.execute(
+      "UPDATE employee_allocations SET is_active = 0 WHERE employee_id = ?",
       [employee_id]
     );
-    if (parseFloat(current) + parseFloat(pct) > 100) {
-      return res.status(400).json({
-        success: false,
-        message: `Total allocation would exceed 100%. Current: ${current}%, requested: ${pct}%.`,
-      });
+
+    // Insert each new allocation
+    const insertedIds = [];
+    for (const a of allocations) {
+      const clientId = a.clientId || a.client_id;
+      const deptId = a.deptId || a.dept_id || null;
+      const pct = Number(a.pct);
+      const [result] = await db.execute(
+        `INSERT INTO employee_allocations
+           (employee_id, client_id, dept_id, pct, start_date, end_date, is_active, created_by)
+         VALUES (?,?,?,?,?,?,1,?)`,
+        [employee_id, clientId, deptId, pct,
+          a.start_date || null, a.end_date || null, req.admin.id]
+      );
+      const allocationId = result.insertId;
+      insertedIds.push(allocationId);
+
+      // Insert stakeholder splits — frontend uses stakeholderId, also accept stakeholder_id
+      if (Array.isArray(a.stakeholders) && a.stakeholders.length > 0) {
+        for (const sp of a.stakeholders) {
+          const shId = sp.stakeholderId || sp.stakeholder_id;
+          if (!shId || !sp.pct) continue;
+          await db.execute(
+            "INSERT INTO allocation_stakeholders (allocation_id, stakeholder_id, pct, created_by) VALUES (?,?,?,?)",
+            [allocationId, shId, Number(sp.pct), req.admin.id]
+          );
+        }
+      }
     }
 
-    const [result] = await db.execute(
-      `INSERT INTO employee_allocations
-         (employee_id, client_id, dept_id, pct, start_date, end_date, is_active, created_by)
-       VALUES (?,?,?,?,?,?,1,?)`,
-      [employee_id, client_id, dept_id || null, pct, start_date || null, end_date || null, req.admin.id]
-    );
-
-    const allocationId = result.insertId;
-
-    if (stakeholders && stakeholders.length > 0) {
-      await Promise.all(stakeholders.map(sp =>
-        db.execute(
-          "INSERT INTO allocation_stakeholders (allocation_id, stakeholder_id, pct, created_by) VALUES (?,?,?,?)",
-          [allocationId, sp.stakeholder_id, sp.pct, req.admin.id]
-        )
-      ));
-    }
-
-    return res.status(201).json({ success: true, message: "Allocation created.", id: allocationId });
+    return res.status(201).json({ success: true, message: "Allocations saved.", ids: insertedIds });
   } catch (err) { next(err); }
 }
 
