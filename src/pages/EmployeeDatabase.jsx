@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import TopBar from "../components/TopBar";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
@@ -23,12 +23,13 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
     education: [{ degree: "", institution: "", year: "", grade: "", specialization: "" }],
     workHistory: [],
     skills: [], skillInput: "",
-    resumeFile: "", notes: "", ctc: ""
+    resumeFile: "", resumeFileObj: null, notes: "", ctc: ""
   };
   const [tab, setTab] = useState(0);
-  const [f, setF] = useState(isEdit ? { ...blank, ...existing, passport: { ...blank.passport, ...(existing.passport || {}) }, emergency: { ...blank.emergency, ...(existing.emergency || {}) }, skills: existing.skills || [], skillInput: "" } : blank);
+  const [f, setF] = useState(isEdit ? { ...blank, ...existing, passport: { ...blank.passport, ...(existing.passport || {}) }, emergency: { ...blank.emergency, ...(existing.emergency || {}) }, skills: existing.skills || [], skillInput: "", resumeFileObj: null } : blank);
   const [touched, setTouched] = useState(false);
   const [sameAddr, setSameAddr] = useState(false);
+  const resumeInputRef = useRef(null);
   const upd = (k, v) => setF(p => ({ ...p, [k]: v }));
   const updNested = (obj, key, v) => setF(p => ({ ...p, [obj]: { ...p[obj], [key]: v } }));
 
@@ -266,21 +267,34 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
     // Tab 4 — Notes & Resume
     <div key={4}>
       <div style={{ fontSize: 12, fontWeight: 700, color: "#E8520A", marginBottom: 14, textTransform: "uppercase", letterSpacing: 0.5 }}>Resume</div>
+      {/* Hidden real file input */}
+      <input
+        type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} ref={resumeInputRef}
+        onChange={e => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) { alert("File too large — max 5MB allowed."); return; }
+          upd("resumeFile", file.name);
+          upd("resumeFileObj", file);
+          e.target.value = ""; // reset so same file can be re-selected
+        }}
+      />
       <div style={{ border: "2px dashed #E2E8F0", borderRadius: 12, padding: "24px", textAlign: "center", background: "#F8FAFC", marginBottom: 20 }}>
         <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
         {f.resumeFile ? (
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#0D1B2A", marginBottom: 6 }}>{f.resumeFile}</div>
+            {f.resumeFileObj && <div style={{ fontSize: 11, color: "#10B981", marginBottom: 8 }}>New file selected — will upload on save</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => upd("resumeFile", "")}>Remove</button>
-              <button className="btn-secondary" style={{ fontSize: 12 }}>Replace File</button>
+              <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => { upd("resumeFile", ""); upd("resumeFileObj", null); }}>Remove</button>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => resumeInputRef.current?.click()}>Replace File</button>
             </div>
           </div>
         ) : (
           <div>
             <div style={{ fontSize: 13, color: "#64748B", marginBottom: 10 }}>Drag and drop resume file, or click to browse</div>
             <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 12 }}>PDF, DOC, DOCX — max 5MB</div>
-            <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => upd("resumeFile", "Resume_Upload_Simulated.pdf")}>Browse File</button>
+            <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => resumeInputRef.current?.click()}>Browse File</button>
           </div>
         )}
       </div>
@@ -373,6 +387,7 @@ function normalizeEmployeeDetail(d) {
       ? String(d.joining_date).split("T")[0]
       : (d.joinDate || ""),
     notes: d.internal_notes || d.notes || "",
+    resumeFile: d.resume_original_name || d.resumeFile || "",
     reportingManager: d.reporting_manager || d.reportingManager || "",
     passport: {
       no: d.passport_number || (d.passport || {}).no || "",
@@ -580,6 +595,11 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
         const res = await apiFetch(`/api/employees/${emp.id}`, { method: "PUT", body: JSON.stringify(toSnake(emp)) });
         const d = await res.json();
         if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Update failed"), "#EF4444"); return; }
+        // Upload resume file if a new one was selected
+        if (emp.resumeFileObj) {
+          const fd = new FormData(); fd.append("file", emp.resumeFileObj);
+          await apiFetch(`/api/employees/${emp.id}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
+        }
         showToast(emp.name + " updated successfully", "#10B981");
       } catch (e) { setEmpList(prev); showToast("Network error — update not saved", "#EF4444"); }
     } else {
@@ -591,8 +611,13 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
         const res = await apiFetch("/api/employees", { method: "POST", body: JSON.stringify(toSnake(emp)) });
         const d = await res.json();
         if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Add failed"), "#EF4444"); return; }
-        const newId = d.data?.id || d.id;
-        if (newId) setEmpList(p => p.map(e => e.id === emp.id ? { ...e, id: newId } : e));
+        const newId = d.data?.id || d.id || emp.id;
+        if (newId && newId !== emp.id) setEmpList(p => p.map(e => e.id === emp.id ? { ...e, id: newId } : e));
+        // Upload resume file if selected during create
+        if (emp.resumeFileObj) {
+          const fd = new FormData(); fd.append("file", emp.resumeFileObj);
+          await apiFetch(`/api/employees/${newId}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
+        }
         showToast(emp.name + " added — visible in Allocation & Leakage as Unallocated", "#10B981");
       } catch (e) { setEmpList(prev); showToast("Network error — employee not saved", "#EF4444"); }
     }
@@ -898,7 +923,18 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
                     <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0D1B2A", marginBottom: 4 }}>{viewEmp.resumeFile || "No resume uploaded"}</div>
                     {viewEmp.resumeFile && (
-                      <button className="btn-secondary" style={{ fontSize: 12, marginTop: 8 }} onClick={() => showToast("Resume download would begin in production")}>
+                      <button className="btn-secondary" style={{ fontSize: 12, marginTop: 8 }} onClick={async () => {
+                        try {
+                          const res = await apiFetch(`/api/employees/${viewEmp.id}/resume`);
+                          if (!res.ok) { showToast("Resume file not found on server"); return; }
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url; a.download = viewEmp.resumeFile;
+                          document.body.appendChild(a); a.click();
+                          document.body.removeChild(a); URL.revokeObjectURL(url);
+                        } catch { showToast("Download failed — please try again"); }
+                      }}>
                         Download Resume
                       </button>
                     )}
