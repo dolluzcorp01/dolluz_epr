@@ -65,7 +65,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       const res = await apiFetch("/api/reviews/bulk-request", { method: "POST", body: JSON.stringify({ cycle_id: selCycId }) });
       const d = await res.json();
       if (!d.success) { showToast("API error: " + (d.message || "Bulk request issue"), "error"); return; }
-    } catch (e) {}
+    } catch (e) { }
     showToast(firedCount > 0 ? ("Bulk request sent to " + firedCount + " stakeholder(s)") : "All stakeholders already requested — nothing to send");
   };;
   const [search, setSearch] = useState("");
@@ -867,8 +867,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
         </div>
       )}
 
-      {toast && <Toast msg={toast} type={toastType} />
-      )}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };

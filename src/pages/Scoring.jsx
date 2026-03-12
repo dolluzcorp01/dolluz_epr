@@ -39,7 +39,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         if (d.success && d.data && d.data.length > 0)
           setComps(d.data.map(c => ({ ...c, name: c.name, weight: Number(c.weight) })));
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []); // eslint-disable-line
 
   // Sync selCycId when cycles load (e.g. from API)
@@ -60,10 +60,10 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         if (d.success && d.data) {
           const qt = selCycle ? selCycle.q : "";
           const rows = d.data.map(row => ({
-            code:         row.employee_code,
-            name:         row.employee_name,
-            ctc:          Number(row.ctc_at_time || row.base_ctc || 0),
-            score:        row.score != null ? parseFloat(row.score) : null,
+            code: row.employee_code,
+            name: row.employee_name,
+            ctc: Number(row.ctc_at_time || row.base_ctc || 0),
+            score: row.score != null ? parseFloat(row.score) : null,
             approvedHike: row.approved_hike != null ? String(row.approved_hike) : null,
           }));
           setEmpScores(rows);
@@ -71,13 +71,13 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
           const hikeUpd = {}, lockUpd = {};
           d.data.forEach(row => {
             if (row.approved_hike != null) hikeUpd[row.employee_code] = String(row.approved_hike);
-            if (row.scoring_locked)        lockUpd[row.employee_code] = true;
+            if (row.scoring_locked) lockUpd[row.employee_code] = true;
           });
           if (Object.keys(hikeUpd).length) setScoringHikes(p => ({ ...p, [qt]: { ...(p[qt] || {}), ...hikeUpd } }));
           if (Object.keys(lockUpd).length) setScoringLocked(p => ({ ...p, [qt]: { ...(p[qt] || {}), ...lockUpd } }));
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setScoringLoading(false));
   }, [selCycId]); // eslint-disable-line
   const [toast, setToast] = useState("");
@@ -305,7 +305,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         if (d.success && setCycles) {
           setCycles(prev => prev.map(c => c.id === selCycle.id ? { ...c, status: "Closed", closed: true } : c));
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     setShowPublishModal(false);
     showToast(quarter + " published — " + Object.keys(lockUpd).length + " hikes finalised & cycle closed", "#10B981");
@@ -332,7 +332,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
       return {
         q: (q || "").split(" ")[0] + " '" + ((q || "").split(" ")[1] || "").slice(2),
         score: entry ? entry.score : null,
-        hike:  hikeVal,
+        hike: hikeVal,
       };
     })
   }));
@@ -804,8 +804,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         </div>
       )}
 
-      {toast && <Toast msg={toast} type={toastType} />
-      )}
+      {toast && <Toast msg={toast} type={toastType} />}
       {showGuide && <ScoringGuide />}
     </div>
   );

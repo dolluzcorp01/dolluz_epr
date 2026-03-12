@@ -748,8 +748,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
           </div>
         )}
       </div>
-      {toast && <Toast msg={toast} type={toastType} />
-      )}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };
