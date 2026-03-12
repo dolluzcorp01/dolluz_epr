@@ -10,8 +10,10 @@ const auth = [verifyAdminToken, requirePasswordChanged];
 router.get   ("/",                    ...auth, ctrl.listReviews);
 router.post  ("/bulk-request",        ...auth, requireRole("atLeast:sub_admin"), ctrl.bulkRequest);
 router.post  ("/:id/send-email",      ...auth, requireRole("atLeast:sub_admin"), ctrl.sendReviewEmail);
+router.post  ("/:id/remind",          ...auth, requireRole("atLeast:sub_admin"), ctrl.remindReview);
 router.post  ("/:id/reactivate",      ...auth, requireRole("atLeast:sub_admin"), ctrl.reactivateReview);
 router.put   ("/:id/approve",         ...auth, requireRole("atLeast:sub_admin"), ctrl.approveReview);
+router.put   ("/:id",                 ...auth, requireRole("atLeast:sub_admin"), ctrl.updateReview);
 
 // ── Stakeholder (OTP-auth) ────────────────────────────────────────────────────
 router.get   ("/my",                  verifyStakeholderAuth, ctrl.getMyReviews);

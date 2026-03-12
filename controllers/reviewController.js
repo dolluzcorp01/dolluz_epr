@@ -421,6 +421,29 @@ async function submitReview(req, res, next) {
 
 module.exports = {
   listReviews, sendReviewEmail, bulkRequest,
-  reactivateReview, approveReview,
+  reactivateReview, approveReview, remindReview, updateReview,
   getMyReviews, getReviewForm, submitReview,
 };
+
+async function remindReview(req, res, next) {
+  const { id } = req.params;
+  try {
+    const [[r]] = await db.execute("SELECT id FROM reviews WHERE id = ?", [id]);
+    if (!r) return res.status(404).json({ success: false, message: "Review not found." });
+    // In production: send reminder email here
+    await db.execute("UPDATE reviews SET updated_at = NOW() WHERE id = ?", [id]);
+    return res.json({ success: true, message: "Reminder sent." });
+  } catch (err) { next(err); }
+}
+
+async function updateReview(req, res, next) {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!status) return res.status(400).json({ success: false, message: "status is required." });
+  try {
+    const [[r]] = await db.execute("SELECT id FROM reviews WHERE id = ?", [id]);
+    if (!r) return res.status(404).json({ success: false, message: "Review not found." });
+    await db.execute("UPDATE reviews SET status = ?, updated_at = NOW() WHERE id = ?", [status, id]);
+    return res.json({ success: true, message: "Review updated." });
+  } catch (err) { next(err); }
+}

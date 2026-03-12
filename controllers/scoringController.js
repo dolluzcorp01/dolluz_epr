@@ -173,4 +173,31 @@ async function updateCompetency(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listScoring, computeScore, approveHike, lockScore, listCompetencies, updateCompetency };
+async function unlockScore(req, res, next) {
+  const { employee_id } = req.params;
+  const { cycle_id } = req.body;
+  if (!cycle_id) return res.status(400).json({ success: false, message: "cycle_id is required." });
+  try {
+    await db.execute(
+      "UPDATE quarter_scores SET scoring_locked = 0, unlocked_at = NOW(), updated_at = NOW() WHERE employee_id = ? AND cycle_id = ?",
+      [employee_id, cycle_id]
+    );
+    return res.json({ success: true, message: "Score unlocked." });
+  } catch (err) { next(err); }
+}
+
+// ── PUT /api/scoring/competencies (bulk) ─────────────────────────────────────
+async function bulkUpdateCompetencies(req, res, next) {
+  const { competencies } = req.body;
+  if (!Array.isArray(competencies)) return res.status(400).json({ success: false, message: "competencies array required." });
+  const total = competencies.reduce((s, c) => s + Number(c.weight || 0), 0);
+  if (Math.round(total) !== 100) return res.status(400).json({ success: false, message: `Weights must total 100 (got ${total}).` });
+  try {
+    for (const c of competencies) {
+      await db.execute("UPDATE competencies SET weight = ? WHERE id = ?", [c.weight, c.id]);
+    }
+    return res.json({ success: true, message: "Competencies updated." });
+  } catch (err) { next(err); }
+}
+
+module.exports = { listScoring, computeScore, approveHike, lockScore, unlockScore, listCompetencies, updateCompetency, bulkUpdateCompetencies };

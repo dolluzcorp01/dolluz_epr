@@ -68,6 +68,22 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
     <input className="inp" type={type} value={v} onChange={e => onChange(e.target.value)}
       placeholder={ph} style={{ borderColor: touched && req && !v ? "#EF4444" : "" }} />
   );
+
+  // Digits-only input (phone numbers, PIN, Aadhaar, year)
+  const digitsOnly = (v, onChange, ph, maxLen, req = false) => (
+    <input className="inp" value={v}
+      onChange={e => { const val = e.target.value.replace(/\D/g, ""); onChange(maxLen ? val.slice(0, maxLen) : val); }}
+      placeholder={ph} inputMode="numeric"
+      style={{ borderColor: touched && req && !v ? "#EF4444" : "" }} />
+  );
+
+  // Non-negative number input (CTC, work history CTC)
+  const posNumInp = (v, onChange, ph) => (
+    <input className="inp" type="number" value={v} min="0"
+      onChange={e => { if (Number(e.target.value) >= 0 || e.target.value === "") onChange(e.target.value); }}
+      onKeyDown={e => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }}
+      placeholder={ph} />
+  );
   const lbl = (text, req) => (
     <label style={{ fontSize: 11, color: "#64748B", fontWeight: 600, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.3 }}>
       {text}{req && <span style={{ color: "#EF4444", marginLeft: 2 }}>*</span>}
@@ -100,7 +116,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
       <div style={{ borderTop: "1px solid #F1F5F9", margin: "16px 0" }} />
       <div style={{ fontSize: 12, fontWeight: 700, color: "#E8520A", marginBottom: 14, textTransform: "uppercase", letterSpacing: 0.5 }}>Identity Documents</div>
       <G2>
-        {frow("Aadhaar Number", inp(f.aadhaar, v => upd("aadhaar", v), "XXXX XXXX XXXX"))}
+        {frow("Aadhaar Number", digitsOnly(f.aadhaar, v => upd("aadhaar", v), "XXXX XXXX XXXX", 12))}
         {frow("PAN Number", inp(f.pan, v => upd("pan", v), "ABCDE1234F"))}
       </G2>
       <G3>
@@ -114,8 +130,8 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
     <div key={1}>
       <div style={{ fontSize: 12, fontWeight: 700, color: "#E8520A", marginBottom: 14, textTransform: "uppercase", letterSpacing: 0.5 }}>Contact Details</div>
       <G2>
-        {frow("Primary Phone", inp(f.primaryPhone, v => upd("primaryPhone", v), "10-digit mobile", "tel", true), true)}
-        {frow("Secondary Phone", inp(f.secondaryPhone, v => upd("secondaryPhone", v), "Alternate / landline"))}
+        {frow("Primary Phone", digitsOnly(f.primaryPhone, v => upd("primaryPhone", v), "10-digit mobile", 15, true), true)}
+        {frow("Secondary Phone", digitsOnly(f.secondaryPhone, v => upd("secondaryPhone", v), "Alternate / landline", 15))}
       </G2>
       <G2>
         {frow("Official Email", inp(f.officialEmail, v => upd("officialEmail", v), "name@dolluz.com", "email", true), true)}
@@ -128,7 +144,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
       <G3>
         {frow("City", inp(f.currentAddr.city, v => updNested("currentAddr", "city", v), "City"))}
         {frow("State", inp(f.currentAddr.state, v => updNested("currentAddr", "state", v), "State"))}
-        {frow("PIN Code", inp(f.currentAddr.pin, v => updNested("currentAddr", "pin", v), "6-digit PIN"))}
+        {frow("PIN Code", digitsOnly(f.currentAddr.pin, v => updNested("currentAddr", "pin", v), "6-digit PIN", 6))}
       </G3>
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 0 14px" }}>
         <input type="checkbox" id="sameAddr" checked={sameAddr} onChange={e => syncAddr(e.target.checked)} style={{ width: 16, height: 16 }} />
@@ -141,7 +157,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
         <G3>
           {frow("City", inp(f.permanentAddr.city, v => updNested("permanentAddr", "city", v), "City"))}
           {frow("State", inp(f.permanentAddr.state, v => updNested("permanentAddr", "state", v), "State"))}
-          {frow("PIN Code", inp(f.permanentAddr.pin, v => updNested("permanentAddr", "pin", v), "6-digit PIN"))}
+          {frow("PIN Code", digitsOnly(f.permanentAddr.pin, v => updNested("permanentAddr", "pin", v), "6-digit PIN", 6))}
         </G3>
       </>}
       <div style={{ borderTop: "1px solid #F1F5F9", margin: "16px 0" }} />
@@ -151,7 +167,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
         {frow("Relationship", inp(f.emergency.relation, v => updNested("emergency", "relation", v), "Spouse, Parent, Sibling…"))}
       </G2>
       <G2>
-        {frow("Phone Number", inp(f.emergency.phone, v => updNested("emergency", "phone", v), "Mobile number"))}
+        {frow("Phone Number", digitsOnly(f.emergency.phone, v => updNested("emergency", "phone", v), "Mobile number", 15))}
         {frow("Email (optional)", inp(f.emergency.email, v => updNested("emergency", "email", v), "email@example.com", "email"))}
       </G2>
     </div>,
@@ -171,7 +187,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
         {frow("Employment Status", <select className="inp" value={f.status} onChange={e => upd("status", e.target.value)}>
           {STATUSES.map(s => <option key={s}>{s}</option>)}
         </select>)}
-        {frow("CTC (USD/month)", inp(String(f.ctc), v => upd("ctc", v), "0.00", "number"))}
+        {frow("CTC (USD/month)", posNumInp(String(f.ctc), v => upd("ctc", v), "0.00"))}
       </G3>
       {frow("Reporting Manager", inp(f.reportingManager, v => upd("reportingManager", v), "Manager name"))}
       <div style={{ borderTop: "1px solid #F1F5F9", margin: "16px 0" }} />
@@ -212,7 +228,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
             {frow("Institution / University", inp(edu.institution, v => updEdu(i, "institution", v), "College or university name"))}
           </G2>
           <G3>
-            {frow("Year of Passing", inp(edu.year, v => updEdu(i, "year", v), "YYYY"))}
+            {frow("Year of Passing", digitsOnly(edu.year, v => updEdu(i, "year", v), "YYYY", 4))}
             {frow("Grade / %", inp(edu.grade, v => updEdu(i, "grade", v), "e.g. 78% or 8.5 CGPA"))}
             {frow("Specialization", inp(edu.specialization, v => updEdu(i, "specialization", v), "Subject / stream"))}
           </G3>
@@ -239,7 +255,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
           <G3>
             {frow("From (YYYY-MM)", inp(w.from, v => updWork(i, "from", v), "2018-06"))}
             {frow("To (YYYY-MM)", inp(w.to, v => updWork(i, "to", v), "2023-01 or Present"))}
-            {frow("Last CTC (USD)", inp(w.ctc, v => updWork(i, "ctc", v), "0"))}
+            {frow("Last CTC (USD)", posNumInp(w.ctc, v => updWork(i, "ctc", v), "0"))}
           </G3>
           {frow("Reason for Leaving", inp(w.reason, v => updWork(i, "reason", v), "Career growth, relocation, etc."))}
         </div>
@@ -278,8 +294,8 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
   ];
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 700, width: "96vw" }}>
+    <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 700, width: "min(700px, calc(96vw - 236px))" }}>
         {/* Header */}
         <div style={{
           padding: "22px 28px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -343,37 +359,37 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
 function normalizeEmployeeDetail(d) {
   return {
     ...d,
-    bloodGroup:       d.blood_group       || d.bloodGroup       || "",
-    aadhaar:          d.aadhaar_number    || d.aadhaar          || "",
-    pan:              d.pan_number        || d.pan              || "",
-    officialEmail:    d.official_email    || d.officialEmail    || "",
-    personalEmail:    d.personal_email    || d.personalEmail    || "",
-    primaryPhone:     d.primary_phone     || d.primaryPhone     || "",
-    secondaryPhone:   d.secondary_phone   || d.secondaryPhone   || "",
-    joinDate:         d.joining_date
+    bloodGroup: d.blood_group || d.bloodGroup || "",
+    aadhaar: d.aadhaar_number || d.aadhaar || "",
+    pan: d.pan_number || d.pan || "",
+    officialEmail: d.official_email || d.officialEmail || "",
+    personalEmail: d.personal_email || d.personalEmail || "",
+    primaryPhone: d.primary_phone || d.primaryPhone || "",
+    secondaryPhone: d.secondary_phone || d.secondaryPhone || "",
+    joinDate: d.joining_date
       ? String(d.joining_date).split("T")[0]
       : (d.joinDate || ""),
-    notes:            d.internal_notes    || d.notes            || "",
+    notes: d.internal_notes || d.notes || "",
     reportingManager: d.reporting_manager || d.reportingManager || "",
     passport: {
-      no:      d.passport_number || (d.passport || {}).no      || "",
-      expiry:  d.passport_expiry
+      no: d.passport_number || (d.passport || {}).no || "",
+      expiry: d.passport_expiry
         ? String(d.passport_expiry).split("T")[0]
         : ((d.passport || {}).expiry || ""),
       country: (d.passport || {}).country || "",
     },
     emergency: d.ec_name ? {
-      name:     d.ec_name     || "",
+      name: d.ec_name || "",
       relation: d.ec_relation || "",
-      phone:    d.ec_phone    || "",
-      email:    d.ec_email    || "",
+      phone: d.ec_phone || "",
+      email: d.ec_email || "",
     } : (d.emergency || { name: "", relation: "", phone: "", email: "" }),
-    currentAddr:   d.currentAddr   || { line1: "", line2: "", city: "", state: "", pin: "" },
+    currentAddr: d.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
     permanentAddr: d.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
     skills: Array.isArray(d.skills)
       ? d.skills.map(s => (typeof s === "string" ? s : (s.skill_name || s.name || "")))
       : [],
-    education:   Array.isArray(d.education)   ? d.education   : [],
+    education: Array.isArray(d.education) ? d.education : [],
     workHistory: Array.isArray(d.workHistory) ? d.workHistory : [],
   };
 }
@@ -423,28 +439,85 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
       (e.designation || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.officialEmail || "").toLowerCase().includes(search.toLowerCase()));
 
+  const toSnake = emp => ({
+    id: emp.id,
+    code: emp.code,
+    name: emp.name,
+    official_email:          emp.officialEmail    || emp.official_email    || null,
+    personal_email:          emp.personalEmail    || emp.personal_email    || null,
+    primary_phone:           emp.primaryPhone     || emp.primary_phone     || null,
+    secondary_phone:         emp.secondaryPhone   || emp.secondary_phone   || null,
+    gender:                  emp.gender           || null,
+    dob:                     emp.dob              || null,
+    blood_group:             emp.bloodGroup       || emp.blood_group       || null,
+    nationality:             emp.nationality      || null,
+    aadhaar_number:          emp.aadhaar          || emp.aadhaar_number    || null,
+    pan_number:              emp.pan              || emp.pan_number        || null,
+    passport_number:         (emp.passport || {}).no      || emp.passport_number || null,
+    passport_expiry:         (emp.passport || {}).expiry  || emp.passport_expiry || null,
+    curr_addr_line1:         (emp.currentAddr   || {}).line1  || null,
+    curr_addr_line2:         (emp.currentAddr   || {}).line2  || null,
+    curr_addr_city:          (emp.currentAddr   || {}).city   || null,
+    curr_addr_state:         (emp.currentAddr   || {}).state  || null,
+    curr_addr_pincode:       (emp.currentAddr   || {}).pin    || null,
+    perm_addr_same_as_curr:  0,
+    perm_addr_line1:         (emp.permanentAddr || {}).line1  || null,
+    perm_addr_line2:         (emp.permanentAddr || {}).line2  || null,
+    perm_addr_city:          (emp.permanentAddr || {}).city   || null,
+    perm_addr_state:         (emp.permanentAddr || {}).state  || null,
+    perm_addr_pincode:       (emp.permanentAddr || {}).pin    || null,
+    ec_name:                 (emp.emergency || {}).name     || null,
+    ec_relation:             (emp.emergency || {}).relation  || null,
+    ec_phone:                (emp.emergency || {}).phone    || null,
+    ec_email:                (emp.emergency || {}).email    || null,
+    role:                    emp.designation      || emp.role           || null,
+    department:              emp.department       || null,
+    joining_date:            emp.joinDate         || emp.joining_date   || null,
+    active:                  emp.status === "Inactive" ? 0 : 1,
+    ctc:                     emp.ctc              || null,
+    reporting_manager:       emp.reportingManager || emp.reporting_manager || null,
+    internal_notes:          emp.notes            || emp.internal_notes || null,
+  });
+
   const saveEmp = async emp => {
     const isNew = !empList.find(e => e.id === emp.id);
     if (!isNew) {
+      const prev = [...empList];
       setEmpList(p => p.map(e => e.id === emp.id ? emp : e));
-      showToast(emp.name + " updated successfully");
-      try { await apiFetch(`/api/employees/${emp.id}`, { method: "PUT", body: JSON.stringify(emp) }); } catch (e) {}
+      setShowAdd(false); setEditEmp(null);
+      try {
+        const res = await apiFetch(`/api/employees/${emp.id}`, { method: "PUT", body: JSON.stringify(toSnake(emp)) });
+        const d = await res.json();
+        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Update failed"), "#EF4444"); return; }
+        showToast(emp.name + " updated successfully", "#10B981");
+      } catch (e) { setEmpList(prev); showToast("Network error — update not saved", "#EF4444"); }
     } else {
+      const prev = [...empList];
       setEmpList(p => [...p, emp]);
-      // Bridge new employee to AllocationPage state as unallocated resource
       if (onNewEmployee) onNewEmployee(emp);
-      showToast(emp.name + " added — visible in Allocation & Leakage as Unallocated");
-      try { await apiFetch("/api/employees", { method: "POST", body: JSON.stringify(emp) }); } catch (e) {}
+      setShowAdd(false); setEditEmp(null);
+      try {
+        const res = await apiFetch("/api/employees", { method: "POST", body: JSON.stringify(toSnake(emp)) });
+        const d = await res.json();
+        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Add failed"), "#EF4444"); return; }
+        const newId = d.data?.id || d.id;
+        if (newId) setEmpList(p => p.map(e => e.id === emp.id ? { ...e, id: newId } : e));
+        showToast(emp.name + " added — visible in Allocation & Leakage as Unallocated", "#10B981");
+      } catch (e) { setEmpList(prev); showToast("Network error — employee not saved", "#EF4444"); }
     }
-    setShowAdd(false); setEditEmp(null);
   };
   const deleteEmp = async id => {
     const e = empList.find(x => x.id === id);
+    const prev = [...empList];
     setEmpList(p => p.filter(x => x.id !== id));
     setConfirmDel(null);
     setViewEmp(null);
-    showToast((e ? e.name : "Employee") + " removed from database");
-    try { await apiFetch(`/api/employees/${id}`, { method: "DELETE" }); } catch (e) {}
+    try {
+      const res = await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
+      const d = await res.json();
+      if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Delete failed"), "#EF4444"); return; }
+      showToast((e ? e.name : "Employee") + " removed from database", "#10B981");
+    } catch (err) { setEmpList(prev); showToast("Network error — delete not completed", "#EF4444"); }
   };
 
   const statColor = s => ({ Active: "#10B981", "On Leave": "#F59E0B", Probation: "#3B82F6", "Notice Period": "#EF4444", Inactive: "#94A3B8" }[s] || "#94A3B8");
@@ -584,8 +657,8 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
 
       {/* ── View Employee Profile Modal ── */}
       {viewEmp && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setViewEmp(null); }}>
-          <div className="modal" style={{ maxWidth: 680, width: "96vw" }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setViewEmp(null); }}>
+          <div className="modal" style={{ maxWidth: 680, width: "min(680px, calc(96vw - 236px))" }}>
             {/* Header */}
             <div style={{
               padding: "22px 28px", background: "linear-gradient(135deg,#0D1B2A,#1E3A5F)", borderRadius: "14px 14px 0 0",
@@ -741,7 +814,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
 
       {/* ── Delete confirm ── */}
       {confirmDel && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
           <div className="modal" style={{ maxWidth: 400 }}>
             <div style={{ padding: "28px" }}>
               <div style={{ fontSize: 28, textAlign: "center", marginBottom: 12 }}>⚠️</div>

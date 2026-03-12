@@ -302,8 +302,8 @@ export default function DolluzEPRPortal() {
       ctc: emp.ctc || 0,
       allocations: [],
     }]);
-    // Also update the full employee list so EmployeeDatabase reflects the new row immediately
-    setEmpList(p => [...p, normalizeEmpListItem(emp)]);
+    // NOTE: empList is already updated by EmployeeDatabase via the shared setEmpList prop.
+    // Do NOT push here again — that causes a duplicate row until reload.
   };
 
   const handleAddCycle = nc => {

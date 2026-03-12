@@ -223,7 +223,15 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
 
   // ── Weight helpers ───────────────────────────────────────────────────────────
   const updW = (i, v) => { if (isHistorical) return; setComps(p => p.map((c, j) => j === i ? { ...c, weight: Math.max(0, Math.min(100, Number(v) || 0)) } : c)); setDirty(true); };
-  const saveW = () => { if (!weightOk) { showToast("Weights must total 100%"); return; } setDirty(false); showToast("Weights saved", "#10B981"); };
+  const saveW = async () => {
+    if (!weightOk) { showToast("Weights must total 100%"); return; }
+    try {
+      const res = await apiFetch("/api/scoring/competencies", { method: "PUT", body: JSON.stringify({ competencies: comps.map(c => ({ id: c.id, weight: c.weight })) }) });
+      const d = await res.json();
+      if (!d.success) { showToast("Error: " + (d.message || "Save failed"), "#EF4444"); return; }
+      setDirty(false); showToast("Weights saved", "#10B981");
+    } catch (e) { showToast("Network error — weights not saved", "#EF4444"); }
+  };
 
   // ── Hike helpers ─────────────────────────────────────────────────────────────
   const getHike = code => (scoringHikes[quarter] ? scoringHikes[quarter][code] : undefined);
@@ -238,6 +246,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
 
   const toggleLk = async (code) => {
     const nowLocked = !isLocked(code);
+    const prevLocked = { ...scoringLocked };
+    const prevReviews = setAllReviews ? undefined : null;
     setScoringLocked(p => ({ ...p, [quarter]: { ...(p[quarter] || {}), [code]: nowLocked } }));
     if (setAllReviews) {
       setAllReviews(prev => prev.map(r =>
@@ -246,14 +256,24 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
           : r
       ));
     }
-    showToast(nowLocked ? "Hike locked — review marked Approved" : "Row unlocked — status returned to Submitted", nowLocked ? "#10B981" : "#64748B");
     const hikeValue = (nowLocked && scoringHikes && scoringHikes[quarter]) ? scoringHikes[quarter][code] : undefined;
-    if (nowLocked) {
-      try { await apiFetch(`/api/scoring/${code}/lock`, { method: "PUT" }); } catch (e) {}
-      if (hikeValue !== undefined) {
-        try { await apiFetch(`/api/scoring/${code}/hike`, { method: "PUT", body: JSON.stringify({ hike_pct: hikeValue }) }); } catch (e) {}
+    try {
+      if (nowLocked) {
+        const res = await apiFetch(`/api/scoring/${code}/lock`, { method: "PUT" });
+        const d = await res.json();
+        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Lock failed"), "#EF4444"); return; }
+        if (hikeValue !== undefined) {
+          const res2 = await apiFetch(`/api/scoring/${code}/hike`, { method: "PUT", body: JSON.stringify({ hike_pct: hikeValue }) });
+          const d2 = await res2.json();
+          if (!d2.success) { showToast("Locked but hike save failed: " + (d2.message || ""), "#F59E0B"); return; }
+        }
+      } else {
+        const res = await apiFetch(`/api/scoring/${code}/unlock`, { method: "PUT" });
+        const d = await res.json();
+        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Unlock failed"), "#EF4444"); return; }
       }
-    }
+      showToast(nowLocked ? "Hike locked — review marked Approved" : "Row unlocked — status returned to Submitted", nowLocked ? "#10B981" : "#64748B");
+    } catch (e) { setScoringLocked(prevLocked); showToast("Network error — lock state not saved", "#EF4444"); }
   };
 
   const bulkApprove = () => {
@@ -263,7 +283,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
     showToast("All suggested hikes applied — review and lock each row", "#3B82F6");
   };
 
-  const publishQuarter = () => {
+  const publishQuarter = async () => {
     const lockUpd = {};
     displayScores.forEach(e => {
       const fin = getHike(e.code);
@@ -276,11 +296,15 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         r.quarter === quarter ? { ...r, status: "Approved" } : r
       ));
     }
-    // Close the cycle
-    if (setCycles && selCycle) {
-      setCycles(prev => prev.map(c =>
-        c.id === selCycle.id ? { ...c, status: "Closed", closed: true } : c
-      ));
+    // Close the cycle via API
+    if (selCycle) {
+      try {
+        const res = await apiFetch(`/api/cycles/${selCycle.id}/close`, { method: "POST" });
+        const d = await res.json();
+        if (d.success && setCycles) {
+          setCycles(prev => prev.map(c => c.id === selCycle.id ? { ...c, status: "Closed", closed: true } : c));
+        }
+      } catch (e) {}
     }
     setShowPublishModal(false);
     showToast(quarter + " published — " + Object.keys(lockUpd).length + " hikes finalised & cycle closed", "#10B981");
@@ -512,6 +536,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
                 <span style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>{c.name}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <input type="number" min={0} max={100} value={c.weight} onChange={e => updW(i, e.target.value)} disabled={isHistorical}
+                    onKeyDown={(e) => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }}
                     style={{
                       width: 52, padding: "3px 7px", fontSize: 12, fontWeight: 700, textAlign: "center",
                       color: isHistorical ? "#94A3B8" : "#E8520A",

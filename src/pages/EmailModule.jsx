@@ -28,29 +28,52 @@ const EmailModule = ({ cycles, clients, employees, emailTemplates, setEmailTempl
 
   const startEdit = tpl => { setEditing(tpl.id); setDraft({ ...tpl }); };
   const saveEdit = async () => {
+    const prev = [...(emailTemplates || [])];
     setEmailTemplates(p => p.map(t => t.id === draft.id ? { ...draft } : t));
     setEditing(null); setDraft(null);
-    showToast("Template saved");
-    try { await apiFetch(`/api/email-templates/${draft.id}`, { method: "PUT", body: JSON.stringify({ subject: draft.subject, body: draft.body }) }); } catch (e) {}
+    try {
+      const res = await apiFetch(`/api/email-templates/${draft.id}`, { method: "PUT", body: JSON.stringify({ subject: draft.subject, body: draft.body }) });
+      const d = await res.json();
+      if (!d.success) { setEmailTemplates(prev); setEditing(draft.id); setDraft(draft); showToast("Error: " + (d.message || "Save failed")); return; }
+      showToast("Template saved");
+    } catch (e) { setEmailTemplates(prev); showToast("Network error — template not saved"); }
   };
-  const addNewTpl = () => {
-    const id = "TPL" + String(Date.now()).slice(-4);
-    const tpl = { id, type: "custom", name: "New Template", subject: "", body: "", editable: true, system: false };
+  const addNewTpl = async () => {
+    const tpl = { id: "TPL" + String(Date.now()).slice(-4), type: "custom", name: "New Template", subject: "", body: "", editable: true, system: false };
+    const prev = [...(emailTemplates || [])];
     setEmailTemplates(p => [...p, tpl]);
     startEdit(tpl);
+    try {
+      const res = await apiFetch("/api/email-templates", { method: "POST", body: JSON.stringify({ name: tpl.name, type: tpl.type, subject: tpl.subject, body: tpl.body }) });
+      const d = await res.json();
+      if (!d.success) { setEmailTemplates(prev); setEditing(null); showToast("Error: " + (d.message || "Create failed")); return; }
+      const newId = d.data?.id || d.id;
+      if (newId) setEmailTemplates(p => p.map(t => t.id === tpl.id ? { ...t, id: newId } : t));
+    } catch (e) { setEmailTemplates(prev); showToast("Network error — template not created"); }
   };
 
   const addCC = async () => {
     if (!newCC.email.includes("@")) { setCcErr("Enter a valid email address"); return; }
     if (ccList.some(c => c.email === newCC.email)) { setCcErr("This email is already in the CC list"); return; }
-    setCcList(p => [...p, { id: "CC" + Date.now(), name: newCC.name || newCC.email.split("@")[0], email: newCC.email, addedAt: new Date().toLocaleDateString("en-IN"), locked: false }]);
+    const entry = { id: "CC" + Date.now(), name: newCC.name || newCC.email.split("@")[0], email: newCC.email, addedAt: new Date().toLocaleDateString("en-IN"), locked: false };
+    const prev = [...(ccList || [])];
+    setCcList(p => [...p, entry]);
     setNewCC({ name: "", email: "" }); setCcErr("");
-    showToast("CC email added");
-    try { await apiFetch("/api/email-templates/cc", { method: "POST", body: JSON.stringify({ email: newCC.email }) }); } catch (e) {}
+    try {
+      const res = await apiFetch("/api/email-templates/cc", { method: "POST", body: JSON.stringify({ email: newCC.email, name: newCC.name }) });
+      const d = await res.json();
+      if (!d.success) { setCcList(prev); showToast("Error: " + (d.message || "CC add failed")); return; }
+      showToast("CC email added");
+    } catch (e) { setCcList(prev); showToast("Network error — CC not added"); }
   };
   const removeCC = async id => {
+    const prev = [...(ccList || [])];
     setCcList(p => p.filter(c => c.id !== id));
-    try { await apiFetch(`/api/email-templates/cc/${id}`, { method: "DELETE" }); } catch (e) {}
+    try {
+      const res = await apiFetch(`/api/email-templates/cc/${id}`, { method: "DELETE" });
+      const d = await res.json();
+      if (!d.success) { setCcList(prev); showToast("Error: " + (d.message || "Remove failed")); }
+    } catch (e) { setCcList(prev); showToast("Network error — CC not removed"); }
   };
 
   const activeCycle = (cycles || []).find(c => c.id === selCycle);
@@ -125,7 +148,16 @@ const EmailModule = ({ cycles, clients, employees, emailTemplates, setEmailTempl
                       {isEd && <button className="btn-primary" style={{ fontSize: 12 }} onClick={saveEdit}>Save</button>}
                       {isEd && <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => { setEditing(null); setDraft(null); }}>Cancel</button>}
                       {isSuperAdmin && !tpl.system && (
-                        <button className="btn-danger" style={{ fontSize: 11 }} onClick={() => { setEmailTemplates(p => p.filter(t => t.id !== tpl.id)); showToast("Template deleted"); }}>Delete</button>
+                        <button className="btn-danger" style={{ fontSize: 11 }} onClick={async () => {
+                          const prev = [...(emailTemplates || [])];
+                          setEmailTemplates(p => p.filter(t => t.id !== tpl.id));
+                          try {
+                            const res = await apiFetch(`/api/email-templates/${tpl.id}`, { method: "DELETE" });
+                            const d = await res.json();
+                            if (!d.success) { setEmailTemplates(prev); showToast("Error: " + (d.message || "Delete failed")); return; }
+                            showToast("Template deleted");
+                          } catch (e) { setEmailTemplates(prev); showToast("Network error — template not deleted"); }
+                        }}>Delete</button>
                       )}
                     </div>
                   </div>

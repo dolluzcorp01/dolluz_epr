@@ -61,8 +61,12 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       });
     });
     setBulkRequestedCycles(p => ({ ...p, [selCycId]: now }));
+    try {
+      const res = await apiFetch("/api/reviews/bulk-request", { method: "POST", body: JSON.stringify({ cycle_id: selCycId }) });
+      const d = await res.json();
+      if (!d.success) { showToast("API error: " + (d.message || "Bulk request issue"), "#F59E0B"); return; }
+    } catch (e) {}
     showToast(firedCount > 0 ? ("Bulk request sent to " + firedCount + " stakeholder(s)") : "All stakeholders already requested — nothing to send", "#0D1B2A");
-    try { await apiFetch("/api/reviews/bulk-request", { method: "POST", body: JSON.stringify({ cycle_id: selCycId }) }); } catch (e) {}
   };;
   const [search, setSearch] = useState("");
 
@@ -72,6 +76,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
   const sendStakeholderEmail = async (cycId, clId, shId, shName, shEmail, empList, quarter, type) => {
     const key = cycId + "_" + clId + "_" + shId;
     const now = new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const prevEmailState = { ...cycleEmailState };
     setCycleEmailState(p => {
       const prev = p[key] || { requestAt: null, reminder1At: null, reminder2At: null, reminder3At: null, logs: [] };
       const newLogs = [...(prev.logs || []), ...empList.map(emp => ({ empId: emp.code, empName: emp.name, type, at: now }))];
@@ -83,8 +88,12 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       return { ...p, [key]: patch };
     });
     setPreviewModal(null);
-    showToast(type + " sent to " + shName, "#10B981");
-    try { await apiFetch(`/api/reviews/${cycId}_${clId}_${shId}/send-email`, { method: "POST" }); } catch (e) {}
+    try {
+      const res = await apiFetch(`/api/reviews/${cycId}_${clId}_${shId}/send-email`, { method: "POST", body: JSON.stringify({ type, employee_ids: empList.map(e => e.id) }) });
+      const d = await res.json();
+      if (!d.success) { setCycleEmailState(prevEmailState); showToast("Error: " + (d.message || "Email send failed"), "#EF4444"); return; }
+      showToast(type + " sent to " + shName, "#10B981");
+    } catch (e) { setCycleEmailState(prevEmailState); showToast("Network error — email not sent", "#EF4444"); }
   };
 
   const openPreview = (cycId, clId, shId, shName, shEmail, empList, type, quarter, deadline) => {

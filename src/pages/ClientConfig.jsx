@@ -212,7 +212,7 @@ const AddClientModal = ({ onAdd, onClose, visible }) => {
                 </div>
                 <div style={{ ...G3, marginTop: 12 }}>
                   <FieldRow label="LinkedIn URL"><input className="inp" value={f.linkedin} onChange={e => upd("linkedin", e.target.value)} placeholder="linkedin.com/company/..." /></FieldRow>
-                  <FieldRow label="Founded Year"><input className="inp" type="number" value={f.founded} onChange={e => upd("founded", e.target.value)} placeholder="e.g. 1998" /></FieldRow>
+                  <FieldRow label="Founded Year"><input className="inp" type="number" value={f.founded} onChange={e => upd("founded", e.target.value)} placeholder="e.g. 1998" onKeyDown={(e) => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }} /></FieldRow>
                   <FieldRow label="Employee Strength">
                     <select className="inp" value={f.empRange} onChange={e => upd("empRange", e.target.value)}>
                       <option value="">Select range</option>
@@ -557,6 +557,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
           name: client.name,
           industry: client.industry || "",
           status: client.status || "active",
+          primary_domain: client.domain || "",
           pc_name: client.primaryContact?.name || "",
           pc_email: client.primaryContact?.email || "",
           pc_phone: client.primaryContact?.phone || "",
@@ -647,7 +648,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
       });
       const d = await res.json();
       if (d.success) {
-        const clientId = nc.code;
+        const clientId = d.data?.id || d.id || nc.code;
         // Save domain to DB
         let savedDomains = [];
         if (nc.domain) {
@@ -666,7 +667,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
             if (dd.success) savedDepts = [{ id: dd.id, name: dd.name }];
           } catch (e) { }
         }
-        const saved = { ...nc, id: clientId, code: clientId, domains: savedDomains, departments: savedDepts, stakeholders: [] };
+        const saved = { ...nc, id: clientId, code: nc.code, domains: savedDomains, departments: savedDepts, stakeholders: [] };
         setClients(p => [...p, saved]);
         setSelIdPersist(clientId);
         setShowAdd(false);

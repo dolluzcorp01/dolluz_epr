@@ -116,7 +116,8 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <FieldRow label="Year">
               <input className="inp" type="number" value={f.year}
-                onChange={e => handleYearChange(e.target.value)} min={2025} max={2035} />
+                onChange={e => handleYearChange(e.target.value)} min={2025} max={2035}
+                onKeyDown={(e) => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }} />
             </FieldRow>
             <FieldRow label="Quarter *">
               <select className="inp" value={f.quarter} onChange={e => handleQuarterChange(e.target.value)}>
@@ -150,10 +151,10 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
           {/* Start + Deadline */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <FieldRow label="Start Date *">
-              <input className="inp" type="date" value={f.start} onChange={e => upd("start", e.target.value)} />
+              <input className="inp" type="date" value={f.start} onChange={e => upd("start", e.target.value)} onClick={(e) => { e.target.showPicker?.(); }} />
             </FieldRow>
             <FieldRow label="Deadline *">
-              <input className="inp" type="date" value={f.deadline} onChange={e => upd("deadline", e.target.value)} />
+              <input className="inp" type="date" value={f.deadline} onChange={e => upd("deadline", e.target.value)} onClick={(e) => { e.target.showPicker?.(); }} />
             </FieldRow>
           </div>
 
@@ -183,7 +184,7 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
                     fontSize: 10, fontWeight: 700, flexShrink: 0
                   }}>R{i + 1}</span>
                   <input className="inp" type="date" value={r} onChange={e => updReminder(i, e.target.value)}
-                    style={{ flex: 1, borderColor: r ? "#FED7AA" : "" }} />
+                    style={{ flex: 1, borderColor: r ? "#FED7AA" : "" }} onClick={(e) => { e.target.showPicker?.(); }} />
                   {f.reminders.length > 1 && (
                     <button onClick={() => removeReminder(i)} style={{
                       background: "none", border: "1.5px solid #FCA5A5", borderRadius: 6,
@@ -259,7 +260,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
 
   const typeToField = { "Review Request": "requestAt", "Reminder 1": "reminder1At", "Reminder 2": "reminder2At", "Reminder 3": "reminder3At" };
 
-  const sendStakeholderEmail = (cycId, clId, shId, shName, shEmail, empList, quarter, type) => {
+  const sendStakeholderEmail = async (cycId, clId, shId, shName, shEmail, empList, quarter, type) => {
     const key = cycId + "_" + clId + "_" + shId;
     const field = typeToField[type] || "requestAt";
     const now = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
@@ -277,7 +278,12 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
       }, ...c.emailHistory]
     } : c));
     setPreviewModal(null);
-    showToast(type + " sent to " + shName + " for " + empList.length + " employee" + (empList.length === 1 ? "" : "s"));
+    try {
+      const res = await apiFetch(`/api/email-dispatch/${cycId}`, { method: "POST", body: JSON.stringify({ client_id: clId, stakeholder_id: shId, type, employee_ids: empList.map(e => e.id) }) });
+      const d = await res.json();
+      if (!d.success) { showToast("Email queued but API error: " + (d.message || ""), "#F59E0B"); return; }
+    } catch (e) {}
+    showToast(type + " sent to " + shName + " for " + empList.length + " employee" + (empList.length === 1 ? "" : "s"), "#10B981");
   };
 
   const sendClientBulkEmail = (cycId, clId, clName, shs, empsByShId, quarter, type) => {
@@ -532,7 +538,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
                         {[["start", "Start"], ["deadline", "Deadline"], ["r1", "Reminder 1"], ["r2", "Reminder 2"]].map(([fld, lbl]) => (
                           <div key={fld}>
                             <label style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, display: "block", marginBottom: 3, textTransform: "uppercase" }}>{lbl}</label>
-                            <input type="date" value={c[fld]} onChange={e => updCyc(c.id, fld, e.target.value)} style={{ fontSize: 12, padding: "5px 9px", width: "auto" }} />
+                            <input type="date" value={c[fld]} onChange={e => updCyc(c.id, fld, e.target.value)} style={{ fontSize: 12, padding: "5px 9px", width: "auto" }} onClick={(e) => { e.target.showPicker?.(); }} />
                           </div>
                         ))}
                       </div>
@@ -562,7 +568,15 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
                     <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
                       {isEd ? (
                         <>
-                          <button className="btn-primary" style={{ fontSize: 12 }} onClick={() => { setEditId(null); showToast("Cycle saved"); }}>Save</button>
+                          <button className="btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                            const prev = cycles.find(x => x.id === c.id);
+                            try {
+                              const res = await apiFetch(`/api/cycles/${c.id}`, { method: "PUT", body: JSON.stringify({ start_date: c.start, end_date: c.deadline, deadline: c.deadline, r1: c.r1, r2: c.r2 }) });
+                              const d = await res.json();
+                              if (!d.success) { showToast("Error: " + (d.message || "Save failed")); return; }
+                              setEditId(null); showToast("Cycle dates saved", "#10B981");
+                            } catch (e) { showToast("Network error — dates not saved"); }
+                          }}>Save</button>
                           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
                         </>
                       ) : (

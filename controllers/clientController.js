@@ -116,6 +116,7 @@ async function updateClient(req, res, next) {
   const { id } = req.params;
   const {
     name, industry, status, color_hex,
+    primary_domain,
     primary_stakeholder_id,
     pc_name, pc_email, pc_phone, notes,
   } = req.body;
@@ -137,6 +138,7 @@ async function updateClient(req, res, next) {
         industry               = COALESCE(?, industry),
         status                 = COALESCE(?, status),
         color_hex              = COALESCE(?, color_hex),
+        primary_domain         = COALESCE(?, primary_domain),
         primary_stakeholder_id = COALESCE(?, primary_stakeholder_id),
         pc_name                = COALESCE(?, pc_name),
         pc_email               = COALESCE(?, pc_email),
@@ -144,7 +146,8 @@ async function updateClient(req, res, next) {
         notes                  = COALESCE(?, notes),
         updated_at             = NOW()
        WHERE id = ?`,
-      [name ?? null, industry ?? null, status ?? null, color_hex ?? null, primary_stakeholder_id || null,
+      [name ?? null, industry ?? null, status ?? null, color_hex ?? null,
+       primary_domain || null, primary_stakeholder_id || null,
        pc_name ?? null, pc_email ?? null, pc_phone ?? null, notes ?? null, id]
     );
     return res.json({ success: true, message: "Client updated." });

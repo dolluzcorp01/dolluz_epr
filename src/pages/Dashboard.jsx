@@ -5,6 +5,7 @@ import KpiCard from "../components/KpiCard";
 import Avatar from "../components/Avatar";
 import Badge from "../components/Badge";
 import { gapPct } from "../constants";
+import { apiFetch } from "../utils/api";
 
 const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycles }) => {
   const reviews = allReviews || [];
@@ -43,9 +44,34 @@ const Dashboard = ({ employees, setPage, topBarProps, allReviews, clients, cycle
   ].filter(d => d.value > 0);
   const [toast, setToast] = useState("");
   const showToast = (msg, color) => { setToast({ msg, color: color || "#0D1B2A" }); setTimeout(() => setToast(""), 2800); };
-  const doApprove = (r) => { setLocalRv(p => p.map(x => x.id === r.id ? { ...x, status: "Approved" } : x)); showToast((r.employee_name || r.employee) + " review approved", "#10B981"); };
-  const doReactivate = (r) => { setLocalRv(p => p.map(x => x.id === r.id ? { ...x, status: "Email Sent" } : x)); showToast("Reactivated — re-sent to " + (r.stakeholder_name || r.stakeholder), "#EF4444"); };
-  const doRemind = (r) => { showToast("Reminder sent to " + (r.stakeholder_name || r.stakeholder), "#6366F1"); };
+  const doApprove = async (r) => {
+    const prev = [...localRv];
+    setLocalRv(p => p.map(x => x.id === r.id ? { ...x, status: "Approved" } : x));
+    try {
+      const res = await apiFetch(`/api/reviews/${r.id}/approve`, { method: "PUT" });
+      const d = await res.json();
+      if (!d.success) { setLocalRv(prev); showToast("Error: " + (d.message || "Approve failed"), "#EF4444"); return; }
+      showToast((r.employee_name || r.employee) + " review approved", "#10B981");
+    } catch (e) { setLocalRv(prev); showToast("Network error — approve not saved", "#EF4444"); }
+  };
+  const doReactivate = async (r) => {
+    const prev = [...localRv];
+    setLocalRv(p => p.map(x => x.id === r.id ? { ...x, status: "Email Sent" } : x));
+    try {
+      const res = await apiFetch(`/api/reviews/${r.id}`, { method: "PUT", body: JSON.stringify({ status: "Email Sent" }) });
+      const d = await res.json();
+      if (!d.success) { setLocalRv(prev); showToast("Error: " + (d.message || "Reactivate failed"), "#EF4444"); return; }
+      showToast("Reactivated — re-sent to " + (r.stakeholder_name || r.stakeholder), "#EF4444");
+    } catch (e) { setLocalRv(prev); showToast("Network error — reactivate not saved", "#EF4444"); }
+  };
+  const doRemind = async (r) => {
+    try {
+      const res = await apiFetch(`/api/reviews/${r.id}/remind`, { method: "POST" });
+      const d = await res.json();
+      if (!d.success) { showToast("Error: " + (d.message || "Remind failed"), "#EF4444"); return; }
+      showToast("Reminder sent to " + (r.stakeholder_name || r.stakeholder), "#6366F1");
+    } catch (e) { showToast("Network error — reminder not sent", "#EF4444"); }
+  };
   return (
     <div className="fade-in">
       <TopBar title="Dashboard" subtitle={cycleLabel} {...topBarProps} />

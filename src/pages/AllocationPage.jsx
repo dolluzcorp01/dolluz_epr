@@ -67,9 +67,22 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
       const cl = clients.find(c => c.id === badSplit.clientId);
       showToast("Stakeholder split for " + (cl ? cl.name.split(" ")[0] : "client") + " must total " + badSplit.pct + "%"); return;
     }
+    const prevEmployees = [...employees];
     setEmployees(p => p.map(e => e.id === eid ? { ...e, allocations: drafts } : e));
-    showToast("Allocation saved"); closeEdit();
-    try { await apiFetch("/api/allocations", { method: "POST", body: JSON.stringify({ employee_id: eid, allocations: drafts }) }); } catch (e) {}
+    closeEdit();
+    try {
+      const res = await apiFetch("/api/allocations", { method: "POST", body: JSON.stringify({ employee_id: eid, allocations: drafts }) });
+      const d = await res.json();
+      if (!d.success) {
+        setEmployees(prevEmployees);
+        showToast("Error: " + (d.message || "Save failed"), "#EF4444");
+        return;
+      }
+      showToast("Allocation saved", "#10B981");
+    } catch (e) {
+      setEmployees(prevEmployees);
+      showToast("Network error — allocation not saved", "#EF4444");
+    }
   };
 
   const leakEmps = employees.filter(e => gapPct(e) > 0);
@@ -253,7 +266,7 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
                             <select className="inp" value={a.deptId} onChange={e => updDept(idx, e.target.value)} style={{ width: 150, fontSize: 12, padding: "6px 9px" }}>
                               {(co ? co.departments : []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
-                            <input className="inp" type="number" min={1} max={100} value={a.pct} onChange={e => updPct(idx, e.target.value)} style={{ width: 68, fontSize: 13, fontWeight: 700, textAlign: "center", padding: "6px 9px", color: a.color, borderColor: a.color + "44" }} />
+                            <input className="inp" type="number" min={1} max={100} value={a.pct} onChange={e => updPct(idx, e.target.value)} style={{ width: 68, fontSize: 13, fontWeight: 700, textAlign: "center", padding: "6px 9px", color: a.color, borderColor: a.color + "44" }} onKeyDown={(e) => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }} />
                             <span style={{ fontSize: 13, color: "#64748B" }}>%</span>
                             {[25, 50, 75, 100].map(v => (
                               <button key={v} onClick={() => updPct(idx, v)} style={{ background: a.pct === v ? a.color + "22" : "#F1F5F9", color: a.pct === v ? a.color : "#64748B", border: `1.5px solid ${a.pct === v ? a.color : "#E2E8F0"}`, borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{v}%</button>
@@ -297,6 +310,7 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
                                         value={shPct}
                                         placeholder="0"
                                         onChange={e => updStakeholderPct(idx, sh.id, e.target.value, Number(a.pct))}
+                                        onKeyDown={(e) => { if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault(); }}
                                         style={{
                                           width: 46, fontSize: 12, fontWeight: 700, textAlign: "center",
                                           padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${entry ? "#8B5CF6" : "#E2E8F0"}`,

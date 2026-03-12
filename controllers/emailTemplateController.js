@@ -82,4 +82,29 @@ async function removeCc(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listTemplates, getTemplate, updateTemplate, listCc, addCc, removeCc };
+module.exports = { listTemplates, getTemplate, updateTemplate, createTemplate, deleteTemplate, listCc, addCc, removeCc };
+
+// ── POST /api/email-templates ─────────────────────────────────────────────────
+async function createTemplate(req, res, next) {
+  const { name, type, subject, body } = req.body;
+  if (!name || !type) return res.status(400).json({ success: false, message: "name and type are required." });
+  try {
+    const [result] = await db.execute(
+      "INSERT INTO email_templates (name, type, subject, body, editable, system_tpl) VALUES (?,?,?,?,1,0)",
+      [name, type, subject || "", body || ""]
+    );
+    return res.status(201).json({ success: true, message: "Template created.", id: result.insertId, data: { id: result.insertId } });
+  } catch (err) { next(err); }
+}
+
+// ── DELETE /api/email-templates/:id ──────────────────────────────────────────
+async function deleteTemplate(req, res, next) {
+  const { id } = req.params;
+  try {
+    const [[row]] = await db.execute("SELECT system_tpl FROM email_templates WHERE id = ?", [id]);
+    if (!row) return res.status(404).json({ success: false, message: "Template not found." });
+    if (row.system_tpl) return res.status(403).json({ success: false, message: "System templates cannot be deleted." });
+    await db.execute("DELETE FROM email_templates WHERE id = ?", [id]);
+    return res.json({ success: true, message: "Template deleted." });
+  } catch (err) { next(err); }
+}
