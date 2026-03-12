@@ -435,6 +435,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
   });
   const setSelIdPersist = (id) => { setSelId(id); localStorage.setItem("epr_selected_client", id); };
   const [editMode, setEditMode] = useState(false);
+  const [pcEditMode, setPcEditMode] = useState(false);
   const [toast, setToast] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newDept, setNewDept] = useState("");
@@ -445,6 +446,9 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
   const [newSHIds, setNewSHIds] = useState(new Set());
   const [toastType, setToastType] = useState("");
   const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2400); };
+
+  // Reset edit modes when switching client
+  useEffect(() => { setEditMode(false); setPcEditMode(false); }, [selId]); // eslint-disable-line
 
   // Fetch full client details (stakeholders, departments, domains) when selId changes
   useEffect(() => {
@@ -724,12 +728,21 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 18, color: "#0D1B2A", letterSpacing: -0.3 }}>{client.name}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
-                  <select value={client.status} onChange={e => updateStat(e.target.value)}
-                    style={{ width: "auto", padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 100, border: "1.5px solid #E2E8F0", background: "#F8FAFC", cursor: "pointer" }}>
-                    <option value="active">active</option>
-                    <option value="onboarding">onboarding</option>
-                    <option value="inactive">inactive</option>
-                  </select>
+                  {editMode ? (
+                    <select value={client.status} onChange={e => updateStat(e.target.value)}
+                      style={{ width: "auto", padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 100, border: "1.5px solid #E2E8F0", background: "#F8FAFC", cursor: "pointer" }}>
+                      <option value="active">active</option>
+                      <option value="onboarding">onboarding</option>
+                      <option value="inactive">inactive</option>
+                    </select>
+                  ) : (
+                    <span style={{
+                      padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 100, border: "1.5px solid #E2E8F0", background: "#F8FAFC",
+                      color: client.status === "active" ? "#10B981" : client.status === "inactive" ? "#EF4444" : "#F59E0B"
+                    }}>
+                      {client.status}
+                    </span>
+                  )}
                   <span style={{ fontSize: 11, color: "#94A3B8" }}>{client.code}</span>
                   <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#6366F1", background: "#EEF2FF", padding: "2px 8px", borderRadius: 6 }}>@{client.domain}</span>
                   <span style={{ fontSize: 11, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 6, fontWeight: 600 }}>{empCount(client.id)} employees</span>
@@ -764,12 +777,31 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
           <div className="card" style={{ padding: "20px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, color: "#0D1B2A" }}>Primary Contact</div>
-              <button className="btn-primary" style={{ fontSize: 12 }} onClick={saveClient}>Save Contact</button>
+              {pcEditMode ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => setPcEditMode(false)}>Cancel</button>
+                  <button className="btn-primary" style={{ fontSize: 12 }} onClick={() => { saveClient(); setPcEditMode(false); }}>Save Contact</button>
+                </div>
+              ) : (
+                <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => setPcEditMode(true)}>Edit</button>
+              )}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              <FieldRow label="Full Name"><input className="inp" value={client.primaryContact && client.primaryContact.name ? client.primaryContact.name : ""} onChange={e => updatePC("name", e.target.value)} placeholder="Contact name" /></FieldRow>
-              <FieldRow label="Email"><input className="inp" value={client.primaryContact && client.primaryContact.email ? client.primaryContact.email : ""} onChange={e => updatePC("email", e.target.value)} placeholder="contact@client.com" /></FieldRow>
-              <FieldRow label="Phone"><input className="inp" value={client.primaryContact && client.primaryContact.phone ? client.primaryContact.phone : ""} onChange={e => updatePC("phone", e.target.value)} placeholder="+91 98xxx xxxxx" /></FieldRow>
+              <FieldRow label="Full Name">
+                {pcEditMode
+                  ? <input className="inp" value={client.primaryContact && client.primaryContact.name ? client.primaryContact.name : ""} onChange={e => updatePC("name", e.target.value)} placeholder="Contact name" />
+                  : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{(client.primaryContact && client.primaryContact.name) || "—"}</div>}
+              </FieldRow>
+              <FieldRow label="Email">
+                {pcEditMode
+                  ? <input className="inp" value={client.primaryContact && client.primaryContact.email ? client.primaryContact.email : ""} onChange={e => updatePC("email", e.target.value)} placeholder="contact@client.com" />
+                  : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{(client.primaryContact && client.primaryContact.email) || "—"}</div>}
+              </FieldRow>
+              <FieldRow label="Phone">
+                {pcEditMode
+                  ? <input className="inp" value={client.primaryContact && client.primaryContact.phone ? client.primaryContact.phone : ""} onChange={e => updatePC("phone", e.target.value)} placeholder="+91 98xxx xxxxx" />
+                  : <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{(client.primaryContact && client.primaryContact.phone) || "—"}</div>}
+              </FieldRow>
             </div>
           </div>
 
