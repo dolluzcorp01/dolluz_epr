@@ -4,9 +4,9 @@
 //   official_email → added via schema additions  |  status(ENUM) → active(TINYINT)
 //   designation → role  |  base_ctc_usd → ctc
 //   allocations → employee_allocations, allocation_pct → pct
-const path   = require("path");
-const fs     = require("fs");
-const db     = require("../config/db");
+const path = require("path");
+const fs = require("fs");
+const db = require("../config/db");
 const { importEmployees } = require("../utils/excel");
 const logger = require("../utils/logger");
 
@@ -33,7 +33,7 @@ async function listEmployees(req, res, next) {
       params.push(client_id);
     }
 
-    const limitInt  = parseInt(limit)  || 50;
+    const limitInt = parseInt(limit) || 50;
     const offsetInt = parseInt(offset) || 0;
 
     const sql = `
@@ -52,7 +52,7 @@ async function listEmployees(req, res, next) {
       LIMIT ${limitInt} OFFSET ${offsetInt}
     `;
 
-    const [rows]        = await db.execute(sql, params);
+    const [rows] = await db.execute(sql, params);
     const [[{ total }]] = await db.execute(
       `SELECT COUNT(*) AS total FROM employees e ${where}`,
       params.slice(0, -2)
@@ -69,8 +69,8 @@ async function getEmployee(req, res, next) {
     const [[employee]] = await db.execute("SELECT * FROM employees WHERE id = ?", [id]);
     if (!employee) return res.status(404).json({ success: false, message: "Employee not found." });
 
-    const [education]   = await db.execute("SELECT * FROM employee_education WHERE employee_id = ? ORDER BY end_year DESC", [id]);
-    const [skills]      = await db.execute("SELECT skill_name, proficiency FROM employee_skills WHERE employee_id = ? ORDER BY skill_name", [id]);
+    const [education] = await db.execute("SELECT * FROM employee_education WHERE employee_id = ? ORDER BY end_year DESC", [id]);
+    const [skills] = await db.execute("SELECT skill_name, proficiency FROM employee_skills WHERE employee_id = ? ORDER BY skill_name", [id]);
     const [workHistory] = await db.execute("SELECT * FROM employee_work_history WHERE employee_id = ? ORDER BY end_date DESC", [id]);
     const [allocations] = await db.execute(`
       SELECT a.*, c.name AS client_name, c.color_hex,
@@ -98,19 +98,19 @@ async function createEmployee(req, res, next) {
       INSERT INTO employees (
         id, code, name, official_email, personal_email,
         primary_phone, secondary_phone, gender, dob, blood_group, nationality,
-        aadhaar_number, pan_number, passport_number, passport_expiry,
+        aadhaar_number, pan_number, passport_number, passport_expiry, passport_country,
         curr_addr_line1, curr_addr_line2, curr_addr_city, curr_addr_state, curr_addr_pincode,
         perm_addr_same_as_curr, perm_addr_line1, perm_addr_line2, perm_addr_city, perm_addr_state, perm_addr_pincode,
         ec_name, ec_relation, ec_phone, ec_email,
         role, department, joining_date, active, ctc,
         reporting_manager, internal_notes, created_by, updated_by
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `, [
       d.id, d.code, d.name,
       d.official_email || null, d.personal_email || null,
       d.primary_phone || null, d.secondary_phone || null,
       d.gender || null, d.dob || null, d.blood_group || null, d.nationality || null,
-      d.aadhaar_number || null, d.pan_number || null, d.passport_number || null, d.passport_expiry || null,
+      d.aadhaar_number || null, d.pan_number || null, d.passport_number || null, d.passport_expiry || null, d.passport_country || null,
       d.curr_addr_line1 || null, d.curr_addr_line2 || null, d.curr_addr_city || null, d.curr_addr_state || null, d.curr_addr_pincode || null,
       d.perm_addr_same_as_curr ? 1 : 0,
       d.perm_addr_line1 || null, d.perm_addr_line2 || null, d.perm_addr_city || null, d.perm_addr_state || null, d.perm_addr_pincode || null,
@@ -120,6 +120,51 @@ async function createEmployee(req, res, next) {
       d.ctc || null, d.reporting_manager || null, d.internal_notes || null,
       req.admin.id, req.admin.id,
     ]);
+    // ── skills ──────────────────────────────────────────────────────────────────
+    if (Array.isArray(d.skills) && d.skills.length) {
+      for (const skill of d.skills) {
+        const name = typeof skill === "string" ? skill.trim() : (skill.skill_name || "").trim();
+        if (!name) continue;
+        await db.execute(
+          "INSERT INTO employee_skills (employee_id, skill_name, proficiency) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE proficiency = VALUES(proficiency)",
+          [d.id, name, skill.proficiency || "Intermediate"]
+        );
+      }
+    }
+
+    // ── education ────────────────────────────────────────────────────────────────
+    if (Array.isArray(d.education) && d.education.length) {
+      await db.execute("DELETE FROM employee_education WHERE employee_id = ?", [d.id]);
+      for (const edu of d.education) {
+        if (!edu.institution && !edu.degree) continue;
+        await db.execute(
+          "INSERT INTO employee_education (employee_id, institution, degree, field_of_study, end_year, grade_cgpa) VALUES (?,?,?,?,?,?)",
+          [d.id, edu.institution || null, edu.degree || null, edu.specialization || null, edu.year ? parseInt(edu.year) : null, edu.grade || null]
+        );
+      }
+    }
+
+    // ── work history ─────────────────────────────────────────────────────────────
+    if (Array.isArray(d.workHistory) && d.workHistory.length) {
+      await db.execute("DELETE FROM employee_work_history WHERE employee_id = ?", [d.id]);
+      for (const w of d.workHistory) {
+        if (!w.company) continue;
+        const toSqlDate = v => {
+          if (!v) return null;
+          const s = String(v).trim();
+          if (/^\d{4}$/.test(s)) return s + "-01-01"; // "2023"
+          if (/^\d{4}-\d{2}$/.test(s)) return s + "-01";    // "2023-06"
+          return s;                                              // "2023-06-15"
+        };
+        const startDate = toSqlDate(w.from);
+        const endDate = toSqlDate(w.to);
+        await db.execute(
+          "INSERT INTO employee_work_history (employee_id, company, title, start_date, end_date, description) VALUES (?,?,?,?,?,?)",
+          [d.id, w.company, w.role || null, startDate, endDate, w.reason || null]
+        );
+      }
+    }
+
     return res.status(201).json({ success: true, message: "Employee created.", id: d.id });
   } catch (err) { next(err); }
 }
@@ -134,26 +179,73 @@ async function updateEmployee(req, res, next) {
     if (!exists) return res.status(404).json({ success: false, message: "Employee not found." });
 
     const fields = [
-      "name","official_email","personal_email","primary_phone","secondary_phone",
-      "gender","dob","blood_group","nationality","aadhaar_number","pan_number",
-      "passport_number","passport_expiry",
-      "curr_addr_line1","curr_addr_line2","curr_addr_city","curr_addr_state","curr_addr_pincode",
-      "perm_addr_same_as_curr","perm_addr_line1","perm_addr_line2","perm_addr_city","perm_addr_state","perm_addr_pincode",
-      "ec_name","ec_relation","ec_phone","ec_email",
-      "role","department","joining_date","active","ctc","reporting_manager","internal_notes",
+      "name", "official_email", "personal_email", "primary_phone", "secondary_phone",
+      "gender", "dob", "blood_group", "nationality", "aadhaar_number", "pan_number",
+      "passport_number", "passport_expiry", "passport_country",
+      "curr_addr_line1", "curr_addr_line2", "curr_addr_city", "curr_addr_state", "curr_addr_pincode",
+      "perm_addr_same_as_curr", "perm_addr_line1", "perm_addr_line2", "perm_addr_city", "perm_addr_state", "perm_addr_pincode",
+      "ec_name", "ec_relation", "ec_phone", "ec_email",
+      "role", "department", "joining_date", "active", "ctc", "reporting_manager", "internal_notes",
     ];
 
     const updates = fields.filter(f => d[f] !== undefined);
     if (!updates.length) return res.status(400).json({ success: false, message: "No fields to update." });
 
     const setClauses = updates.map(f => `${f} = ?`).join(", ");
-    const values     = updates.map(f => d[f]);
+    const values = updates.map(f => d[f]);
     values.push(req.admin.id, id);
 
     await db.execute(
       `UPDATE employees SET ${setClauses}, updated_by = ?, updated_at = NOW() WHERE id = ?`,
       values
     );
+
+    // ── skills ──────────────────────────────────────────────────────────────────
+    if (Array.isArray(d.skills)) {
+      await db.execute("DELETE FROM employee_skills WHERE employee_id = ?", [id]);
+      for (const skill of d.skills) {
+        const name = typeof skill === "string" ? skill.trim() : (skill.skill_name || "").trim();
+        if (!name) continue;
+        await db.execute(
+          "INSERT INTO employee_skills (employee_id, skill_name, proficiency) VALUES (?, ?, ?)",
+          [id, name, skill.proficiency || "Intermediate"]
+        );
+      }
+    }
+
+    // ── education ────────────────────────────────────────────────────────────────
+    if (Array.isArray(d.education)) {
+      await db.execute("DELETE FROM employee_education WHERE employee_id = ?", [id]);
+      for (const edu of d.education) {
+        if (!edu.institution && !edu.degree) continue;
+        await db.execute(
+          "INSERT INTO employee_education (employee_id, institution, degree, field_of_study, end_year, grade_cgpa) VALUES (?,?,?,?,?,?)",
+          [id, edu.institution || null, edu.degree || null, edu.specialization || null, edu.year ? parseInt(edu.year) : null, edu.grade || null]
+        );
+      }
+    }
+
+    // ── work history ─────────────────────────────────────────────────────────────
+    if (Array.isArray(d.workHistory)) {
+      await db.execute("DELETE FROM employee_work_history WHERE employee_id = ?", [id]);
+      for (const w of d.workHistory) {
+        if (!w.company) continue;
+        const toSqlDate = v => {
+          if (!v) return null;
+          const s = String(v).trim();
+          if (/^\d{4}$/.test(s)) return s + "-01-01"; // "2023"
+          if (/^\d{4}-\d{2}$/.test(s)) return s + "-01";    // "2023-06"
+          return s;                                              // "2023-06-15"
+        };
+        const startDate = toSqlDate(w.from);
+        const endDate = toSqlDate(w.to);
+        await db.execute(
+          "INSERT INTO employee_work_history (employee_id, company, title, start_date, end_date, description) VALUES (?,?,?,?,?,?)",
+          [id, w.company, w.role || null, startDate, endDate, w.reason || null]
+        );
+      }
+    }
+
     return res.json({ success: true, message: "Employee updated." });
   } catch (err) { next(err); }
 }
@@ -185,7 +277,7 @@ async function bulkImport(req, res, next) {
       for (const emp of valid) {
         try {
           // Map legacy import columns to new schema
-          const empId   = emp.id || emp.employee_code || emp.code;
+          const empId = emp.id || emp.employee_code || emp.code;
           const empCode = emp.code || emp.employee_code || empId;
           const empName = emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
           const empRole = emp.role || emp.designation;
@@ -218,7 +310,7 @@ async function bulkImport(req, res, next) {
       await conn.execute(
         "INSERT INTO employee_import_logs (uploaded_by, filename, total_rows, success_rows, error_rows, errors_json) VALUES (?,?,?,?,?,?)",
         [req.admin.id, req.file.originalname, total, inserted, errors.length + insertErrors.length,
-         JSON.stringify([...errors, ...insertErrors])]
+        JSON.stringify([...errors, ...insertErrors])]
       );
 
       await conn.commit();

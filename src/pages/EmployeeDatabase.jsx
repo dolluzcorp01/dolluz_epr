@@ -367,6 +367,8 @@ function normalizeEmployeeDetail(d) {
     personalEmail: d.personal_email || d.personalEmail || "",
     primaryPhone: d.primary_phone || d.primaryPhone || "",
     secondaryPhone: d.secondary_phone || d.secondaryPhone || "",
+    dob: d.dob ? String(d.dob).split("T")[0] : (d.dob || ""),
+    designation: d.role || d.designation || "",
     joinDate: d.joining_date
       ? String(d.joining_date).split("T")[0]
       : (d.joinDate || ""),
@@ -377,7 +379,7 @@ function normalizeEmployeeDetail(d) {
       expiry: d.passport_expiry
         ? String(d.passport_expiry).split("T")[0]
         : ((d.passport || {}).expiry || ""),
-      country: (d.passport || {}).country || "",
+      country: d.passport_country || (d.passport || {}).country || "",
     },
     emergency: d.ec_name ? {
       name: d.ec_name || "",
@@ -385,13 +387,42 @@ function normalizeEmployeeDetail(d) {
       phone: d.ec_phone || "",
       email: d.ec_email || "",
     } : (d.emergency || { name: "", relation: "", phone: "", email: "" }),
-    currentAddr: d.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
-    permanentAddr: d.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" },
+    currentAddr: (d.curr_addr_line1 || d.curr_addr_city) ? {
+      line1: d.curr_addr_line1 || "",
+      line2: d.curr_addr_line2 || "",
+      city: d.curr_addr_city || "",
+      state: d.curr_addr_state || "",
+      pin: d.curr_addr_pincode || "",
+    } : (d.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
+    permanentAddr: (d.perm_addr_line1 || d.perm_addr_city) ? {
+      line1: d.perm_addr_line1 || "",
+      line2: d.perm_addr_line2 || "",
+      city: d.perm_addr_city || "",
+      state: d.perm_addr_state || "",
+      pin: d.perm_addr_pincode || "",
+    } : (d.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
     skills: Array.isArray(d.skills)
       ? d.skills.map(s => (typeof s === "string" ? s : (s.skill_name || s.name || "")))
       : [],
-    education: Array.isArray(d.education) ? d.education : [],
-    workHistory: Array.isArray(d.workHistory) ? d.workHistory : [],
+    education: Array.isArray(d.education)
+      ? d.education.map(e => ({
+        degree: e.degree || "",
+        institution: e.institution || "",
+        year: e.end_year != null ? String(e.end_year) : (e.year || ""),
+        grade: e.grade_cgpa || e.grade || "",
+        specialization: e.field_of_study || e.specialization || "",
+      }))
+      : [],
+    workHistory: Array.isArray(d.workHistory)
+      ? d.workHistory.map(w => ({
+        company: w.company || "",
+        role: w.title || w.role || "",
+        from: w.start_date ? String(w.start_date).slice(0, 7) : (w.from || ""),
+        to: w.end_date ? String(w.end_date).slice(0, 7) : (w.to || ""),
+        reason: w.description || w.reason || "",
+        ctc: w.ctc || "",
+      }))
+      : [],
   };
 }
 
@@ -511,6 +542,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
     pan_number: emp.pan || emp.pan_number || null,
     passport_number: (emp.passport || {}).no || emp.passport_number || null,
     passport_expiry: (emp.passport || {}).expiry || emp.passport_expiry || null,
+    passport_country: (emp.passport || {}).country || emp.passport_country || null,
     curr_addr_line1: (emp.currentAddr || {}).line1 || null,
     curr_addr_line2: (emp.currentAddr || {}).line2 || null,
     curr_addr_city: (emp.currentAddr || {}).city || null,
@@ -533,6 +565,9 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
     ctc: emp.ctc || null,
     reporting_manager: emp.reportingManager || emp.reporting_manager || null,
     internal_notes: emp.notes || emp.internal_notes || null,
+    skills: Array.isArray(emp.skills) ? emp.skills : [],
+    education: Array.isArray(emp.education) ? emp.education : [],
+    workHistory: Array.isArray(emp.workHistory) ? emp.workHistory : [],
   });
 
   const saveEmp = async emp => {
@@ -701,7 +736,12 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
                   </td>
                   <td onClick={ev => ev.stopPropagation()}>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => { setEditEmp(e); }}>Edit</button>
+                      <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => {
+                        apiFetch(`/api/employees/${e.id}`)
+                          .then(r => r.json())
+                          .then(d => setEditEmp(d.success && d.data ? normalizeEmployeeDetail(d.data) : e))
+                          .catch(() => setEditEmp(e));
+                      }}>Edit</button>
                       <button className="btn-ghost" style={{ fontSize: 11, color: "#EF4444" }} onClick={() => setConfirmDel(e.id)}>Delete</button>
                     </div>
                   </td>
