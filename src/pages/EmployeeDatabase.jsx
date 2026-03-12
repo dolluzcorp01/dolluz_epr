@@ -403,40 +403,40 @@ function normalizeEmployeeDetail(d) {
       email: d.ec_email || "",
     } : (d.emergency || { name: "", relation: "", phone: "", email: "" }),
     currentAddr: (d.curr_addr_line1 || d.curr_addr_city) ? {
-      line1: d.curr_addr_line1 || "",
-      line2: d.curr_addr_line2 || "",
-      city: d.curr_addr_city || "",
-      state: d.curr_addr_state || "",
-      pin: d.curr_addr_pincode || "",
+      line1: d.curr_addr_line1  || "",
+      line2: d.curr_addr_line2  || "",
+      city:  d.curr_addr_city   || "",
+      state: d.curr_addr_state  || "",
+      pin:   d.curr_addr_pincode|| "",
     } : (d.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
     permanentAddr: (d.perm_addr_line1 || d.perm_addr_city) ? {
-      line1: d.perm_addr_line1 || "",
-      line2: d.perm_addr_line2 || "",
-      city: d.perm_addr_city || "",
-      state: d.perm_addr_state || "",
-      pin: d.perm_addr_pincode || "",
+      line1: d.perm_addr_line1  || "",
+      line2: d.perm_addr_line2  || "",
+      city:  d.perm_addr_city   || "",
+      state: d.perm_addr_state  || "",
+      pin:   d.perm_addr_pincode|| "",
     } : (d.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
     skills: Array.isArray(d.skills)
       ? d.skills.map(s => (typeof s === "string" ? s : (s.skill_name || s.name || "")))
       : [],
     education: Array.isArray(d.education)
       ? d.education.map(e => ({
-        degree: e.degree || "",
-        institution: e.institution || "",
-        year: e.end_year != null ? String(e.end_year) : (e.year || ""),
-        grade: e.grade_cgpa || e.grade || "",
-        specialization: e.field_of_study || e.specialization || "",
-      }))
+          degree:         e.degree         || "",
+          institution:    e.institution    || "",
+          year:           e.end_year != null ? String(e.end_year) : (e.year || ""),
+          grade:          e.grade_cgpa     || e.grade || "",
+          specialization: e.field_of_study || e.specialization || "",
+        }))
       : [],
     workHistory: Array.isArray(d.workHistory)
       ? d.workHistory.map(w => ({
-        company: w.company || "",
-        role: w.title || w.role || "",
-        from: w.start_date ? String(w.start_date).slice(0, 7) : (w.from || ""),
-        to: w.end_date ? String(w.end_date).slice(0, 7) : (w.to || ""),
-        reason: w.description || w.reason || "",
-        ctc: w.ctc || "",
-      }))
+          company: w.company   || "",
+          role:    w.title     || w.role || "",
+          from:    w.start_date ? String(w.start_date).slice(0, 7) : (w.from || ""),
+          to:      w.end_date   ? String(w.end_date).slice(0, 7)   : (w.to   || ""),
+          reason:  w.description|| w.reason || "",
+          ctc:     w.ctc       || "",
+        }))
       : [],
   };
 }
@@ -478,7 +478,8 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
   const [viewTab, setViewTab] = useState(0);
   const [confirmDel, setConfirmDel] = useState(null);
   const [toast, setToast] = useState("");
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   // Sync helper — keeps local + lifted state in step
   const setEmpList = updater => {
@@ -594,14 +595,14 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
       try {
         const res = await apiFetch(`/api/employees/${emp.id}`, { method: "PUT", body: JSON.stringify(toSnake(emp)) });
         const d = await res.json();
-        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Update failed"), "#EF4444"); return; }
+        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Update failed"), "error"); return; }
         // Upload resume file if a new one was selected
         if (emp.resumeFileObj) {
           const fd = new FormData(); fd.append("file", emp.resumeFileObj);
-          await apiFetch(`/api/employees/${emp.id}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
+          await apiFetch(`/api/employees/${emp.id}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => {});
         }
         showToast(emp.name + " updated successfully", "#10B981");
-      } catch (e) { setEmpList(prev); showToast("Network error — update not saved", "#EF4444"); }
+      } catch (e) { setEmpList(prev); showToast("Network error — update not saved", "error"); }
     } else {
       const prev = [...empList];
       setEmpList(p => [...p, emp]);
@@ -610,16 +611,16 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
       try {
         const res = await apiFetch("/api/employees", { method: "POST", body: JSON.stringify(toSnake(emp)) });
         const d = await res.json();
-        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Add failed"), "#EF4444"); return; }
+        if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Add failed"), "error"); return; }
         const newId = d.data?.id || d.id || emp.id;
         if (newId && newId !== emp.id) setEmpList(p => p.map(e => e.id === emp.id ? { ...e, id: newId } : e));
         // Upload resume file if selected during create
         if (emp.resumeFileObj) {
           const fd = new FormData(); fd.append("file", emp.resumeFileObj);
-          await apiFetch(`/api/employees/${newId}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
+          await apiFetch(`/api/employees/${newId}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => {});
         }
         showToast(emp.name + " added — visible in Allocation & Leakage as Unallocated", "#10B981");
-      } catch (e) { setEmpList(prev); showToast("Network error — employee not saved", "#EF4444"); }
+      } catch (e) { setEmpList(prev); showToast("Network error — employee not saved", "error"); }
     }
   };
   const deleteEmp = async id => {
@@ -631,9 +632,9 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
     try {
       const res = await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
       const d = await res.json();
-      if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Delete failed"), "#EF4444"); return; }
+      if (!d.success) { setEmpList(prev); showToast("Error: " + (d.message || "Delete failed"), "error"); return; }
       showToast((e ? e.name : "Employee") + " removed from database", "#10B981");
-    } catch (err) { setEmpList(prev); showToast("Network error — delete not completed", "#EF4444"); }
+    } catch (err) { setEmpList(prev); showToast("Network error — delete not completed", "error"); }
   };
 
   const statColor = s => ({ Active: "#10B981", "On Leave": "#F59E0B", Probation: "#3B82F6", "Notice Period": "#EF4444", Inactive: "#94A3B8" }[s] || "#94A3B8");
@@ -978,7 +979,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
           existing={editEmp || null}
         />
       )}
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };

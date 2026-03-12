@@ -247,7 +247,8 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
   const [toast, setToast] = useState("");
   const [previewModal, setPreviewModal] = useState(null);
   const [shLogOpen, setShLogOpen] = useState({});
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   const togExp = id => setExpanded(p => ({ ...p, [id]: !p[id] }));
   const togHist = id => setHistOpen(p => ({ ...p, [id]: !p[id] }));
@@ -281,9 +282,9 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
     try {
       const res = await apiFetch(`/api/email-dispatch/${cycId}`, { method: "POST", body: JSON.stringify({ client_id: clId, stakeholder_id: shId, type, employee_ids: empList.map(e => e.id) }) });
       const d = await res.json();
-      if (!d.success) { showToast("Email queued but API error: " + (d.message || ""), "#F59E0B"); return; }
+      if (!d.success) { showToast("Email queued but API error: " + (d.message || ""), "error"); return; }
     } catch (e) {}
-    showToast(type + " sent to " + shName + " for " + empList.length + " employee" + (empList.length === 1 ? "" : "s"), "#10B981");
+    showToast(type + " sent to " + shName + " for " + empList.length + " employee" + (empList.length === 1 ? "" : "s"));
   };
 
   const sendClientBulkEmail = (cycId, clId, clName, shs, empsByShId, quarter, type) => {
@@ -574,8 +575,8 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
                               const res = await apiFetch(`/api/cycles/${c.id}`, { method: "PUT", body: JSON.stringify({ start_date: c.start, end_date: c.deadline, deadline: c.deadline, r1: c.r1, r2: c.r2 }) });
                               const d = await res.json();
                               if (!d.success) { showToast("Error: " + (d.message || "Save failed")); return; }
-                              setEditId(null); showToast("Cycle dates saved", "#10B981");
-                            } catch (e) { showToast("Network error — dates not saved"); }
+                              setEditId(null); showToast("Cycle dates saved");
+                            } catch (e) { showToast("Network error — dates not saved", "error"); }
                           }}>Save</button>
                           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
                         </>
@@ -1117,7 +1118,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
         </div>
       )}
 
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };

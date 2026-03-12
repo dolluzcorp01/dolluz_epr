@@ -10,7 +10,8 @@ import { apiFetch } from "../utils/api";
 const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [toast, setToast] = useState("");
-  const showToast = (msg, c) => { setToast({ msg, color: c || "#0D1B2A" }); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   // ── User management state ──
   const [users, setUsers] = useState([]);
@@ -54,8 +55,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
   const roleBg = r => ({ "Super Admin": "#FFF5F0", "Admin": "#EFF6FF", "Sub-Admin": "#F5F3FF" }[r] || "#F8FAFC");
 
   const saveUser = async () => {
-    if (!newUser.name || !newUser.email) { showToast("Name and email are required", "#EF4444"); return; }
-    if (newUser.role === "Sub-Admin" && newUser.assignedClients.length === 0) { showToast("Sub-Admin must be assigned to at least one client", "#EF4444"); return; }
+    if (!newUser.name || !newUser.email) { showToast("Name and email are required", "error"); return; }
+    if (newUser.role === "Sub-Admin" && newUser.assignedClients.length === 0) { showToast("Sub-Admin must be assigned to at least one client", "error"); return; }
     if (editUser) {
       const prev = [...users];
       setUsers(p => p.map(u => u.id === editUser ? { ...u, ...newUser } : u));
@@ -63,9 +64,9 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
       try {
         const res = await apiFetch(`/api/settings/users/${editUser}`, { method: "PUT", body: JSON.stringify(newUser) });
         const d = await res.json();
-        if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Update failed"), "#EF4444"); return; }
-        showToast(newUser.name + " updated", "#10B981");
-      } catch (e) { setUsers(prev); showToast("Network error — update not saved", "#EF4444"); }
+        if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Update failed"), "error"); return; }
+        showToast(newUser.name + " updated");
+      } catch (e) { setUsers(prev); showToast("Network error — update not saved", "error"); }
     } else {
       const tempUser = { ...newUser, id: "U" + uid(), lastLogin: "Never", avatar: newUser.name ? newUser.name[0].toUpperCase() : "?" };
       const prev = [...users];
@@ -74,11 +75,11 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
       try {
         const res = await apiFetch("/api/settings/users", { method: "POST", body: JSON.stringify(newUser) });
         const d = await res.json();
-        if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Add failed"), "#EF4444"); return; }
+        if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Add failed"), "error"); return; }
         const newId = d.data?.id || d.id;
         if (newId) setUsers(p => p.map(u => u.id === tempUser.id ? { ...u, id: newId } : u));
-        showToast(newUser.name + " added — welcome email sent", "#10B981");
-      } catch (e) { setUsers(prev); showToast("Network error — user not saved", "#EF4444"); }
+        showToast(newUser.name + " added — welcome email sent");
+      } catch (e) { setUsers(prev); showToast("Network error — user not saved", "error"); }
     }
   };
 
@@ -90,8 +91,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
     try {
       const res = await apiFetch(`/api/settings/users/${id}`, { method: "PUT", body: JSON.stringify({ status: newStatus }) });
       const d = await res.json();
-      if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Status update failed"), "#EF4444"); }
-    } catch (e) { setUsers(prev); showToast("Network error — status not changed", "#EF4444"); }
+      if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Status update failed"), "error"); }
+    } catch (e) { setUsers(prev); showToast("Network error — status not changed", "error"); }
   };
   const deleteUser = async id => {
     const user = users.find(u => u.id === id);
@@ -100,13 +101,13 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
     try {
       const res = await apiFetch(`/api/settings/users/${id}`, { method: "DELETE" });
       const d = await res.json();
-      if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Delete failed"), "#EF4444"); return; }
-      showToast("User removed", "#10B981");
-    } catch (e) { setUsers(prev); showToast("Network error — user not deleted", "#EF4444"); }
+      if (!d.success) { setUsers(prev); showToast("Error: " + (d.message || "Delete failed"), "error"); return; }
+      showToast("User removed");
+    } catch (e) { setUsers(prev); showToast("Network error — user not deleted", "error"); }
   };
 
   const postAnnouncement = async () => {
-    if (!newAnn.title || !newAnn.body) { showToast("Title and message are required", "#EF4444"); return; }
+    if (!newAnn.title || !newAnn.body) { showToast("Title and message are required", "error"); return; }
     const entry = { id: "AN" + uid(), ...newAnn, author: profile.name || "Admin", date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }), read: 0 };
     const prev = [...announcements];
     setAnnouncements(p => [entry, ...p]);
@@ -114,9 +115,9 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
     try {
       const res = await apiFetch("/api/announcements", { method: "POST", body: JSON.stringify({ title: newAnn.title, body: newAnn.body, priority: newAnn.priority }) });
       const d = await res.json();
-      if (!d.success) { setAnnouncements(prev); showToast("Error: " + (d.message || "Post failed"), "#EF4444"); return; }
-      showToast("Announcement posted to all sub-users", "#10B981");
-    } catch (e) { setAnnouncements(prev); showToast("Network error — announcement not posted", "#EF4444"); }
+      if (!d.success) { setAnnouncements(prev); showToast("Error: " + (d.message || "Post failed"), "error"); return; }
+      showToast("Announcement posted to all sub-users");
+    } catch (e) { setAnnouncements(prev); showToast("Network error — announcement not posted", "error"); }
   };
   // Can current user reset password for target user?
   const canResetPwd = (targetRole) => {
@@ -510,7 +511,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button className="btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => {
-                        showToast("Password reset email sent to " + resetPwdUser.email, "#3B82F6");
+                        showToast("Password reset email sent to " + resetPwdUser.email);
                         setResetPwdUser(null);
                       }}>Send Reset Link</button>
                       <button className="btn-secondary" onClick={() => setResetPwdUser(null)}>Cancel</button>
@@ -578,8 +579,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-              <button className="btn-primary" style={{ fontSize: 12 }} onClick={async () => { showToast("Security settings saved", "#10B981"); try { await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(sec) }); } catch (e) { } }}>Save Security Settings</button>
-              <button className="btn-danger" style={{ fontSize: 12 }} onClick={() => showToast("All active sessions terminated", "#EF4444")}>Force Logout All Users</button>
+              <button className="btn-primary" style={{ fontSize: 12 }} onClick={async () => { showToast("Security settings saved"); try { await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(sec) }); } catch (e) { } }}>Save Security Settings</button>
+              <button className="btn-danger" style={{ fontSize: 12 }} onClick={() => showToast("All active sessions terminated", "error")}>Force Logout All Users</button>
             </div>
           </div>
         )}
@@ -673,7 +674,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                   <input className="inp" value={profile.email} readOnly style={{ background: "#F8FAFC", color: "#94A3B8" }} />
                 </div>
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 13 }}
-                  onClick={async () => { showToast("Profile updated successfully — sidebar reflects changes", "#10B981"); try { await apiFetch("/api/settings/profile", { method: "PUT", body: JSON.stringify(profile) }); } catch (e) { } }}>Save Profile</button>
+                  onClick={async () => { showToast("Profile updated successfully — sidebar reflects changes"); try { await apiFetch("/api/settings/profile", { method: "PUT", body: JSON.stringify(profile) }); } catch (e) { } }}>Save Profile</button>
               </div>
               {/* Password change */}
               <div>
@@ -692,10 +693,10 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                 </div>
                 <button className="btn-primary" style={{ width: "100%", justifyContent: "center", fontSize: 13 }}
                   onClick={() => {
-                    if (!pwForm.current || !pwForm.newpw) { showToast("All password fields are required", "#EF4444"); return; }
-                    if (pwForm.newpw !== pwForm.confirm) { showToast("New passwords do not match", "#EF4444"); return; }
+                    if (!pwForm.current || !pwForm.newpw) { showToast("All password fields are required", "error"); return; }
+                    if (pwForm.newpw !== pwForm.confirm) { showToast("New passwords do not match", "error"); return; }
                     setPwForm({ current: "", newpw: "", confirm: "" });
-                    showToast("Password changed successfully", "#10B981");
+                    showToast("Password changed successfully");
                   }}>Update Password</button>
 
                 <div style={{ marginTop: 24, borderTop: "1px solid #F1F5F9", paddingTop: 20 }}>
@@ -709,7 +710,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
                     5. All active sessions are invalidated.
                   </div>
                   <button className="btn-secondary" style={{ marginTop: 12, width: "100%", justifyContent: "center", fontSize: 12 }}
-                    onClick={() => showToast("Password reset link sent to " + profile.email, "#3B82F6")}>
+                    onClick={() => showToast("Password reset link sent to " + profile.email)}>
                     📧 Send Reset Link to My Email
                   </button>
                 </div>
@@ -747,14 +748,7 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
           </div>
         )}
       </div>
-      {toast && (
-        <div className="pop" style={{
-          position: "fixed", bottom: 24, right: 24, background: typeof toast === "object" ? toast.color : "#0D1B2A",
-          color: "#fff", padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,.25)", zIndex: 999
-        }}>
-          ✓ {typeof toast === "object" ? toast.msg : toast}
-        </div>
+      {toast && <Toast msg={toast} type={toastType} />
       )}
     </div>
   );

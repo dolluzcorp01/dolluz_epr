@@ -443,7 +443,8 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
   const [confirmDelDept, setConfirmDelDept] = useState(null); // { id, name }
   const [confirmDelDomain, setConfirmDelDomain] = useState(null); // { id, domain }
   const [newSHIds, setNewSHIds] = useState(new Set());
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2400); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2400); };
 
   // Fetch full client details (stakeholders, departments, domains) when selId changes
   useEffect(() => {
@@ -541,7 +542,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         }
       } catch (e) { failed++; }
     }));
-    showToast(failed ? `${failed} stakeholder(s) failed to save` : "Stakeholders saved");
+    showToast(failed ? `${failed} stakeholder(s) failed to save` : "Stakeholders saved", failed ? "error" : "");
   };
 
   // ── Client fields ─────────────────────────────────────────────────────────────
@@ -567,7 +568,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
       const d = await res.json();
       if (d.success) { setEditMode(false); showToast("Client saved"); }
       else showToast("Error: " + (d.message || "Save failed"));
-    } catch (e) { showToast("Network error — could not save client"); }
+    } catch (e) { showToast("Network error — could not save client", "error"); }
   };
 
   // ── Domains ───────────────────────────────────────────────────────────────────
@@ -582,7 +583,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: [...(c.domains || []), { id: d.id, domain: d.domain }] } : c));
         showToast("Domain added");
       } else { showToast("Error: " + (d.message || "Failed to add domain")); }
-    } catch (e) { showToast("Network error"); }
+    } catch (e) { showToast("Network error", "error"); }
   };
   const remDomain = async (domainId) => {
     const found = (client.domains || []).find(d => (d.id || d) === domainId);
@@ -591,7 +592,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
   const doRemDomain = async (domainId) => {
     setConfirmDelDomain(null);
     setClients(cs => cs.map(c => c.id === selId ? { ...c, domains: (c.domains || []).filter(x => (x.id || x) !== domainId) } : c));
-    try { await apiFetch(`/api/clients/${selId}/domains/${domainId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove domain"); }
+    try { await apiFetch(`/api/clients/${selId}/domains/${domainId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove domain", "error"); }
   };
 
   // ── Departments ───────────────────────────────────────────────────────────────
@@ -606,11 +607,11 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: [...(c.departments || []), { id: d.id, name: d.name }] } : c));
         showToast("Department added");
       } else { showToast("Error: " + (d.message || "Failed to add department")); }
-    } catch (e) { showToast("Network error"); }
+    } catch (e) { showToast("Network error", "error"); }
   };
   const remDept = async (deptId) => {
     setClients(cs => cs.map(c => c.id === selId ? { ...c, departments: (c.departments || []).filter(d => d.id !== deptId) } : c));
-    try { await apiFetch(`/api/clients/${selId}/departments/${deptId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove department"); }
+    try { await apiFetch(`/api/clients/${selId}/departments/${deptId}`, { method: "DELETE" }); } catch (e) { showToast("Failed to remove department", "error"); }
   };
   const deleteClient = async () => {
     const deletedName = client.name;
@@ -624,10 +625,10 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         setSelIdPersist(rem[0] ? rem[0].id : "");
         showToast(`"${deletedName}" removed successfully`);
       } else {
-        showToast("Cannot delete: " + (d.message || "Server error"));
+        showToast("Cannot delete: " + (d.message || "Server error"), "error");
       }
     } catch (e) {
-      showToast("Network error — client not deleted");
+      showToast("Network error — client not deleted", "error");
     }
   };
   const addClient = async (nc) => {
@@ -676,7 +677,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         showToast("Error: " + (d.message || "Failed to save client"));
       }
     } catch (e) {
-      showToast("Network error — could not save client");
+      showToast("Network error — could not save client", "error");
     }
   };
 
@@ -973,7 +974,7 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
       )}
 
       <AddClientModal onAdd={addClient} onClose={() => setShowAdd(false)} visible={showAdd} />
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };

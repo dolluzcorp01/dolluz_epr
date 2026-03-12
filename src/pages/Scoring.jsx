@@ -85,7 +85,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
   const [showPublishModal, setShowPublishModal] = useState(false);
-  const showToast = (msg, color) => { setToast({ msg, color: color || "#0D1B2A" }); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   // ── Scoring Walkthrough ─────────────────────────────────────────────────────
   const GUIDE_STEPS = [
@@ -224,13 +225,13 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
   // ── Weight helpers ───────────────────────────────────────────────────────────
   const updW = (i, v) => { if (isHistorical) return; setComps(p => p.map((c, j) => j === i ? { ...c, weight: Math.max(0, Math.min(100, Number(v) || 0)) } : c)); setDirty(true); };
   const saveW = async () => {
-    if (!weightOk) { showToast("Weights must total 100%"); return; }
+    if (!weightOk) { showToast("Weights must total 100%", "error"); return; }
     try {
       const res = await apiFetch("/api/scoring/competencies", { method: "PUT", body: JSON.stringify({ competencies: comps.map(c => ({ id: c.id, weight: c.weight })) }) });
       const d = await res.json();
-      if (!d.success) { showToast("Error: " + (d.message || "Save failed"), "#EF4444"); return; }
-      setDirty(false); showToast("Weights saved", "#10B981");
-    } catch (e) { showToast("Network error — weights not saved", "#EF4444"); }
+      if (!d.success) { showToast("Error: " + (d.message || "Save failed"), "error"); return; }
+      setDirty(false); showToast("Weights saved");
+    } catch (e) { showToast("Network error — weights not saved", "error"); }
   };
 
   // ── Hike helpers ─────────────────────────────────────────────────────────────
@@ -261,26 +262,26 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
       if (nowLocked) {
         const res = await apiFetch(`/api/scoring/${code}/lock`, { method: "PUT" });
         const d = await res.json();
-        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Lock failed"), "#EF4444"); return; }
+        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Lock failed"), "error"); return; }
         if (hikeValue !== undefined) {
           const res2 = await apiFetch(`/api/scoring/${code}/hike`, { method: "PUT", body: JSON.stringify({ hike_pct: hikeValue }) });
           const d2 = await res2.json();
-          if (!d2.success) { showToast("Locked but hike save failed: " + (d2.message || ""), "#F59E0B"); return; }
+          if (!d2.success) { showToast("Locked but hike save failed: " + (d2.message || ""), "error"); return; }
         }
       } else {
         const res = await apiFetch(`/api/scoring/${code}/unlock`, { method: "PUT" });
         const d = await res.json();
-        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Unlock failed"), "#EF4444"); return; }
+        if (!d.success) { setScoringLocked(prevLocked); showToast("Error: " + (d.message || "Unlock failed"), "error"); return; }
       }
-      showToast(nowLocked ? "Hike locked — review marked Approved" : "Row unlocked — status returned to Submitted", nowLocked ? "#10B981" : "#64748B");
-    } catch (e) { setScoringLocked(prevLocked); showToast("Network error — lock state not saved", "#EF4444"); }
+      showToast(nowLocked ? "Hike locked — review marked Approved" : "Row unlocked — status returned to Submitted");
+    } catch (e) { setScoringLocked(prevLocked); showToast("Network error — lock state not saved", "error"); }
   };
 
   const bulkApprove = () => {
     const updates = {};
     displayScores.forEach(e => { if (e.score !== null && !isLocked(e.code)) updates[e.code] = ((e.score / 100) * 4 * MULT).toFixed(2); });
     setScoringHikes(p => ({ ...p, [quarter]: { ...(p[quarter] || {}), ...updates } }));
-    showToast("All suggested hikes applied — review and lock each row", "#3B82F6");
+    showToast("All suggested hikes applied — review and lock each row");
   };
 
   const publishQuarter = async () => {
@@ -601,8 +602,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
                   </button>
                 </>
               )}
-              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => showToast("Excel export ready — download would begin in production", "#475569")}>&#128202; Export Excel</button>
-              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => showToast("PDF export ready — download would begin in production", "#475569")}>&#128196; Export PDF</button>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => showToast("Excel export ready — download would begin in production")}>&#128202; Export Excel</button>
+              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => showToast("PDF export ready — download would begin in production")}>&#128196; Export PDF</button>
             </div>
           </div>
 
@@ -803,14 +804,7 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
         </div>
       )}
 
-      {toast && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, background: toast.color, color: "#fff",
-          padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,.25)", zIndex: 999, display: "flex", alignItems: "center", gap: 8
-        }}>
-          &#10003; {toast.msg}
-        </div>
+      {toast && <Toast msg={toast} type={toastType} />
       )}
       {showGuide && <ScoringGuide />}
     </div>

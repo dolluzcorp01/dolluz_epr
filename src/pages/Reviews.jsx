@@ -64,13 +64,14 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     try {
       const res = await apiFetch("/api/reviews/bulk-request", { method: "POST", body: JSON.stringify({ cycle_id: selCycId }) });
       const d = await res.json();
-      if (!d.success) { showToast("API error: " + (d.message || "Bulk request issue"), "#F59E0B"); return; }
+      if (!d.success) { showToast("API error: " + (d.message || "Bulk request issue"), "error"); return; }
     } catch (e) {}
-    showToast(firedCount > 0 ? ("Bulk request sent to " + firedCount + " stakeholder(s)") : "All stakeholders already requested — nothing to send", "#0D1B2A");
+    showToast(firedCount > 0 ? ("Bulk request sent to " + firedCount + " stakeholder(s)") : "All stakeholders already requested — nothing to send");
   };;
   const [search, setSearch] = useState("");
 
-  const showToast = (msg, color) => { setToast({ msg, color: color || "#0D1B2A" }); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   // ── Email functions — shared state with Scheduler ───────────────────────────
   const sendStakeholderEmail = async (cycId, clId, shId, shName, shEmail, empList, quarter, type) => {
@@ -91,9 +92,9 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     try {
       const res = await apiFetch(`/api/reviews/${cycId}_${clId}_${shId}/send-email`, { method: "POST", body: JSON.stringify({ type, employee_ids: empList.map(e => e.id) }) });
       const d = await res.json();
-      if (!d.success) { setCycleEmailState(prevEmailState); showToast("Error: " + (d.message || "Email send failed"), "#EF4444"); return; }
-      showToast(type + " sent to " + shName, "#10B981");
-    } catch (e) { setCycleEmailState(prevEmailState); showToast("Network error — email not sent", "#EF4444"); }
+      if (!d.success) { setCycleEmailState(prevEmailState); showToast("Error: " + (d.message || "Email send failed"), "error"); return; }
+      showToast(type + " sent to " + shName);
+    } catch (e) { setCycleEmailState(prevEmailState); showToast("Network error — email not sent", "error"); }
   };
 
   const openPreview = (cycId, clId, shId, shName, shEmail, empList, type, quarter, deadline) => {
@@ -866,14 +867,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
         </div>
       )}
 
-      {toast && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, background: toast.color, color: "#fff",
-          padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,.25)", zIndex: 999, display: "flex", alignItems: "center", gap: 8
-        }}>
-          &#10003; {toast.msg}
-        </div>
+      {toast && <Toast msg={toast} type={toastType} />
       )}
     </div>
   );

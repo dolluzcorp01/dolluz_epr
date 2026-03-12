@@ -12,7 +12,8 @@ const Reports = ({ topBarProps, employees, allReviews, clients, cycles }) => {
   const [clientFilter, setClientFilter] = useState("All");
   const [cmpQ1, setCmpQ1] = useState("");
   const [cmpQ2, setCmpQ2] = useState("");
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+  const [toastType, setToastType] = useState("");
+  const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   const reviews = allReviews || [];
   const allCycles = (cycles || []).slice().sort((a, b) => {
@@ -425,7 +426,7 @@ const Reports = ({ topBarProps, employees, allReviews, clients, cycles }) => {
         )}
       </div>
 
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast} type={toastType} />}
     </div>
   );
 };
