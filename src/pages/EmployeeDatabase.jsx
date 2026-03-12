@@ -66,7 +66,8 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
 
   const inp = (v, onChange, ph, type = "text", req = false) => (
     <input className="inp" type={type} value={v} onChange={e => onChange(e.target.value)}
-      placeholder={ph} style={{ borderColor: touched && req && !v ? "#EF4444" : "" }} />
+      placeholder={ph} style={{ borderColor: touched && req && !v ? "#EF4444" : "" }}
+      onClick={type === "date" ? (e => e.target.showPicker?.()) : undefined} />
   );
 
   // Digits-only input (phone numbers, PIN, Aadhaar, year)
@@ -406,6 +407,25 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
   const [search, setSearch] = useState("");
   const [statusFilt, setStatusFilt] = useState("All");
   const [deptFilt, setDeptFilt] = useState("All");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
+
+  // Dropdown quick-sort options
+  const SORT_OPTIONS = [
+    { value: "name_asc", label: "Name  A → Z", by: "name", dir: "asc" },
+    { value: "name_desc", label: "Name  Z → A", by: "name", dir: "desc" },
+    { value: "code_asc", label: "Code  A → Z", by: "code", dir: "asc" },
+    { value: "code_desc", label: "Code  Z → A", by: "code", dir: "desc" },
+    { value: "created_desc", label: "Recently Added", by: "created", dir: "desc" },
+    { value: "created_asc", label: "First Added", by: "created", dir: "asc" },
+    { value: "joined_desc", label: "Joined (Newest First)", by: "joined", dir: "desc" },
+    { value: "joined_asc", label: "Joined (Oldest First)", by: "joined", dir: "asc" },
+  ];
+  const dropdownVal = SORT_OPTIONS.find(o => o.by === sortBy && o.dir === sortDir)?.value || "";
+  const applyDropdownSort = val => {
+    const opt = SORT_OPTIONS.find(o => o.value === val);
+    if (opt) { setSortBy(opt.by); setSortDir(opt.dir); }
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [editEmp, setEditEmp] = useState(null);
   const [viewEmp, setViewEmp] = useState(null);
@@ -437,46 +457,82 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
     .filter(e => !search || (e.name || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.code || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.designation || "").toLowerCase().includes(search.toLowerCase()) ||
-      (e.officialEmail || "").toLowerCase().includes(search.toLowerCase()));
+      (e.officialEmail || "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "created") {
+        // Sort by DB insertion order using created_at; fall back to array position
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return sortDir === "asc" ? ta - tb : tb - ta;
+      }
+      let va = "", vb = "";
+      if (sortBy === "name") { va = a.name || ""; vb = b.name || ""; }
+      else if (sortBy === "code") { va = a.code || ""; vb = b.code || ""; }
+      else if (sortBy === "desig") { va = a.designation || ""; vb = b.designation || ""; }
+      else if (sortBy === "dept") { va = a.department || ""; vb = b.department || ""; }
+      else if (sortBy === "joined") { va = a.joinDate || ""; vb = b.joinDate || ""; }
+      else if (sortBy === "status") { va = a.status || ""; vb = b.status || ""; }
+      const cmp = va.localeCompare(vb);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+  const toggleSort = col => {
+    if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortBy(col); setSortDir("asc"); }
+  };
+
+  const SortTh = ({ col, children }) => {
+    const active = sortBy === col;
+    return (
+      <th onClick={() => toggleSort(col)} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          {children}
+          <span style={{ fontSize: 10, color: active ? "#E8520A" : "#CBD5E1", lineHeight: 1 }}>
+            {active ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+          </span>
+        </span>
+      </th>
+    );
+  };
 
   const toSnake = emp => ({
     id: emp.id,
     code: emp.code,
     name: emp.name,
-    official_email:          emp.officialEmail    || emp.official_email    || null,
-    personal_email:          emp.personalEmail    || emp.personal_email    || null,
-    primary_phone:           emp.primaryPhone     || emp.primary_phone     || null,
-    secondary_phone:         emp.secondaryPhone   || emp.secondary_phone   || null,
-    gender:                  emp.gender           || null,
-    dob:                     emp.dob              || null,
-    blood_group:             emp.bloodGroup       || emp.blood_group       || null,
-    nationality:             emp.nationality      || null,
-    aadhaar_number:          emp.aadhaar          || emp.aadhaar_number    || null,
-    pan_number:              emp.pan              || emp.pan_number        || null,
-    passport_number:         (emp.passport || {}).no      || emp.passport_number || null,
-    passport_expiry:         (emp.passport || {}).expiry  || emp.passport_expiry || null,
-    curr_addr_line1:         (emp.currentAddr   || {}).line1  || null,
-    curr_addr_line2:         (emp.currentAddr   || {}).line2  || null,
-    curr_addr_city:          (emp.currentAddr   || {}).city   || null,
-    curr_addr_state:         (emp.currentAddr   || {}).state  || null,
-    curr_addr_pincode:       (emp.currentAddr   || {}).pin    || null,
-    perm_addr_same_as_curr:  0,
-    perm_addr_line1:         (emp.permanentAddr || {}).line1  || null,
-    perm_addr_line2:         (emp.permanentAddr || {}).line2  || null,
-    perm_addr_city:          (emp.permanentAddr || {}).city   || null,
-    perm_addr_state:         (emp.permanentAddr || {}).state  || null,
-    perm_addr_pincode:       (emp.permanentAddr || {}).pin    || null,
-    ec_name:                 (emp.emergency || {}).name     || null,
-    ec_relation:             (emp.emergency || {}).relation  || null,
-    ec_phone:                (emp.emergency || {}).phone    || null,
-    ec_email:                (emp.emergency || {}).email    || null,
-    role:                    emp.designation      || emp.role           || null,
-    department:              emp.department       || null,
-    joining_date:            emp.joinDate         || emp.joining_date   || null,
-    active:                  emp.status === "Inactive" ? 0 : 1,
-    ctc:                     emp.ctc              || null,
-    reporting_manager:       emp.reportingManager || emp.reporting_manager || null,
-    internal_notes:          emp.notes            || emp.internal_notes || null,
+    official_email: emp.officialEmail || emp.official_email || null,
+    personal_email: emp.personalEmail || emp.personal_email || null,
+    primary_phone: emp.primaryPhone || emp.primary_phone || null,
+    secondary_phone: emp.secondaryPhone || emp.secondary_phone || null,
+    gender: emp.gender || null,
+    dob: emp.dob || null,
+    blood_group: emp.bloodGroup || emp.blood_group || null,
+    nationality: emp.nationality || null,
+    aadhaar_number: emp.aadhaar || emp.aadhaar_number || null,
+    pan_number: emp.pan || emp.pan_number || null,
+    passport_number: (emp.passport || {}).no || emp.passport_number || null,
+    passport_expiry: (emp.passport || {}).expiry || emp.passport_expiry || null,
+    curr_addr_line1: (emp.currentAddr || {}).line1 || null,
+    curr_addr_line2: (emp.currentAddr || {}).line2 || null,
+    curr_addr_city: (emp.currentAddr || {}).city || null,
+    curr_addr_state: (emp.currentAddr || {}).state || null,
+    curr_addr_pincode: (emp.currentAddr || {}).pin || null,
+    perm_addr_same_as_curr: 0,
+    perm_addr_line1: (emp.permanentAddr || {}).line1 || null,
+    perm_addr_line2: (emp.permanentAddr || {}).line2 || null,
+    perm_addr_city: (emp.permanentAddr || {}).city || null,
+    perm_addr_state: (emp.permanentAddr || {}).state || null,
+    perm_addr_pincode: (emp.permanentAddr || {}).pin || null,
+    ec_name: (emp.emergency || {}).name || null,
+    ec_relation: (emp.emergency || {}).relation || null,
+    ec_phone: (emp.emergency || {}).phone || null,
+    ec_email: (emp.emergency || {}).email || null,
+    role: emp.designation || emp.role || null,
+    department: emp.department || null,
+    joining_date: emp.joinDate || emp.joining_date || null,
+    active: emp.status === "Inactive" ? 0 : 1,
+    ctc: emp.ctc || null,
+    reporting_manager: emp.reportingManager || emp.reporting_manager || null,
+    internal_notes: emp.notes || emp.internal_notes || null,
   });
 
   const saveEmp = async emp => {
@@ -564,6 +620,12 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
         <select className="inp" value={statusFilt} onChange={e => setStatusFilt(e.target.value)} style={{ maxWidth: 140 }}>
           {statuses.map(s => <option key={s}>{s}</option>)}
         </select>
+        <select className="inp" value={dropdownVal} onChange={e => applyDropdownSort(e.target.value)}
+          style={{ maxWidth: 180, color: dropdownVal ? "#0D1B2A" : "#94A3B8" }}
+          title="Sort order">
+          <option value="">⇅ Sort by…</option>
+          {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={downloadTemplate} title="Download import template">📋 Template</button>
           <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => showToast("Excel import — upload .xlsx file in production")} title="Bulk import from Excel">📤 Import XLS</button>
@@ -595,13 +657,13 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
           <table style={{ minWidth: 900 }}>
             <thead>
               <tr>
-                <th>Employee</th>
-                <th>Code</th>
-                <th>Designation</th>
-                <th>Department</th>
+                <SortTh col="name">Employee</SortTh>
+                <SortTh col="code">Code</SortTh>
+                <SortTh col="desig">Designation</SortTh>
+                <SortTh col="dept">Department</SortTh>
                 <th>Contact</th>
-                <th>Joined</th>
-                <th>Status</th>
+                <SortTh col="joined">Joined</SortTh>
+                <SortTh col="status">Status</SortTh>
                 <th>Actions</th>
               </tr>
             </thead>
