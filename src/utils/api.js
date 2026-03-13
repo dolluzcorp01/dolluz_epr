@@ -13,9 +13,16 @@ export async function apiFetch(endpoint, options = {}) {
         ...(options.headers || {}),
     };
     const { isFormData: _removed, ...fetchOptions } = options;
-    return fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
         credentials: "include",
         ...fetchOptions,
         headers,
     });
+    // If token is missing, expired or invalid — fire a global event so the
+    // app can redirect to login without each caller needing to handle it.
+    if (res.status === 401) {
+        localStorage.removeItem("epr_token");
+        window.dispatchEvent(new CustomEvent("epr:unauthorized"));
+    }
+    return res;
 }

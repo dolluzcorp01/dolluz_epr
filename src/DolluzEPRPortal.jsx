@@ -148,6 +148,17 @@ export default function DolluzEPRPortal() {
 
   const [signedOut, setSignedOut] = useState(!localStorage.getItem("epr_token"));
 
+  // Global 401 handler — if any API call gets unauthorized, force back to login
+  useEffect(() => {
+    const handle401 = () => {
+      setSignedOut(true);
+      setAppLoading(false);
+      navigate("/", { replace: true });
+    };
+    window.addEventListener("epr:unauthorized", handle401);
+    return () => window.removeEventListener("epr:unauthorized", handle401);
+  }, [navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sync state when user navigates with browser back/forward
   // Also handle /login URL: redirect to /dashboard if signed in, else show LoginScreen
   useEffect(() => {
