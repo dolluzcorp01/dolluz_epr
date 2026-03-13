@@ -456,8 +456,8 @@ const EmailModule = ({ cycles, clients, employees, emailTemplates, setEmailTempl
         if (!tpl) return null;
         const meta = TYPE_META[tpl.type] || { color: "#64748B", bg: "#F8FAFC", border: "#E2E8F0", label: tpl.name };
         return (
-          <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
-            <div className="modal" style={{ maxWidth: 620, width: "96vw" }}>
+          <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
+            <div className="modal" style={{ maxWidth: 620, width: "min(620px, calc(100% - 32px))" }}>
               <div style={{
                 padding: "20px 28px", borderBottom: "1px solid #F1F5F9",
                 background: "linear-gradient(135deg,#0D1B2A 0%,#1E3A5F 100%)", borderRadius: "14px 14px 0 0",

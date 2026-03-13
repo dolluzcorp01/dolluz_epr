@@ -90,14 +90,14 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
       const res = await apiFetch("/api/cycles", { method: "POST", body: JSON.stringify({ quarter_label: newCycle.q, start_date: newCycle.start, end_date: newCycle.deadline || newCycle.deadline, deadline: newCycle.deadline }) });
       const d = await res.json();
       if (d.success && d.data) { /* ID updated */ }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const selDef = f.quarter ? QUARTER_DEF[parseInt(f.quarter)] : null;
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal">
+    <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 560, width: "min(560px, calc(100% - 32px))" }}>
         {/* Header */}
         <div style={{
           padding: "22px 28px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -110,7 +110,7 @@ const NewCycleModal = ({ onAdd, onClose, existing }) => {
           <button onClick={onClose} style={{ background: "rgba(255,255,255,.15)", border: "none", borderRadius: 8, color: "#fff", padding: "5px 11px", fontSize: 18, cursor: "pointer" }}>&#215;</button>
         </div>
 
-        <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", maxHeight: "70vh" }}>
 
           {/* Year + Quarter */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -256,7 +256,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
   const updCyc = (id, fld, v) => setCycles(p => p.map(c => c.id === id ? { ...c, [fld]: v } : c));
   const closeCyc = async id => {
     setCycles(p => p.map(c => c.id === id ? { ...c, status: "Closed", closed: true } : c)); showToast("Cycle closed");
-    try { await apiFetch(`/api/cycles/${id}/close`, { method: "POST" }); } catch (e) {}
+    try { await apiFetch(`/api/cycles/${id}/close`, { method: "POST" }); } catch (e) { }
   };
 
   const typeToField = { "Review Request": "requestAt", "Reminder 1": "reminder1At", "Reminder 2": "reminder2At", "Reminder 3": "reminder3At" };
@@ -283,7 +283,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
       const res = await apiFetch(`/api/email-dispatch/${cycId}`, { method: "POST", body: JSON.stringify({ client_id: clId, stakeholder_id: shId, type, employee_ids: empList.map(e => e.id) }) });
       const d = await res.json();
       if (!d.success) { showToast("Email queued but API error: " + (d.message || ""), "error"); return; }
-    } catch (e) {}
+    } catch (e) { }
     showToast(type + " sent to " + shName + " for " + empList.length + " employee" + (empList.length === 1 ? "" : "s"));
   };
 
@@ -349,7 +349,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
       // Pre-activating the immediate next cycle — skip start-date guard intentionally
       setCycles(p => p.map(c => c.id === id ? { ...c, status: "Active" } : c));
       showToast(cyc.q + " activated alongside " + activeOne.q + " — 2 cycles now running");
-      try { await apiFetch(`/api/cycles/${id}/activate`, { method: "POST" }); } catch (e) {}
+      try { await apiFetch(`/api/cycles/${id}/activate`, { method: "POST" }); } catch (e) { }
       return;
     }
 
@@ -366,7 +366,7 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
 
     setCycles(p => p.map(c => c.id === id ? { ...c, status: "Active" } : c));
     showToast(cyc.q + " activated successfully");
-    try { await apiFetch(`/api/cycles/${id}/activate`, { method: "POST" }); } catch (e) {}
+    try { await apiFetch(`/api/cycles/${id}/activate`, { method: "POST" }); } catch (e) { }
   };
 
   // Returns null if cycle can be activated, or a short reason string if blocked
@@ -1041,8 +1041,8 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
 
       {/* ── Email Preview Modal ── */}
       {previewModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setPreviewModal(null); }}>
-          <div className="modal" style={{ maxWidth: 600, width: "96vw" }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setPreviewModal(null); }}>
+          <div className="modal" style={{ maxWidth: 600, width: "min(600px, calc(100% - 32px))" }}>
             {/* Header */}
             <div style={{
               padding: "20px 28px", borderBottom: "1px solid #F1F5F9",

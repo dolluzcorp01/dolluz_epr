@@ -310,7 +310,7 @@ const AddEmployeeModal = ({ onSave, onClose, existing }) => {
 
   return (
     <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 700, width: "min(700px, calc(96vw - 236px))" }}>
+      <div className="modal" style={{ maxWidth: 700, width: "min(700px, calc(100% - 32px))" }}>
         {/* Header */}
         <div style={{
           padding: "22px 28px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -403,40 +403,40 @@ function normalizeEmployeeDetail(d) {
       email: d.ec_email || "",
     } : (d.emergency || { name: "", relation: "", phone: "", email: "" }),
     currentAddr: (d.curr_addr_line1 || d.curr_addr_city) ? {
-      line1: d.curr_addr_line1  || "",
-      line2: d.curr_addr_line2  || "",
-      city:  d.curr_addr_city   || "",
-      state: d.curr_addr_state  || "",
-      pin:   d.curr_addr_pincode|| "",
+      line1: d.curr_addr_line1 || "",
+      line2: d.curr_addr_line2 || "",
+      city: d.curr_addr_city || "",
+      state: d.curr_addr_state || "",
+      pin: d.curr_addr_pincode || "",
     } : (d.currentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
     permanentAddr: (d.perm_addr_line1 || d.perm_addr_city) ? {
-      line1: d.perm_addr_line1  || "",
-      line2: d.perm_addr_line2  || "",
-      city:  d.perm_addr_city   || "",
-      state: d.perm_addr_state  || "",
-      pin:   d.perm_addr_pincode|| "",
+      line1: d.perm_addr_line1 || "",
+      line2: d.perm_addr_line2 || "",
+      city: d.perm_addr_city || "",
+      state: d.perm_addr_state || "",
+      pin: d.perm_addr_pincode || "",
     } : (d.permanentAddr || { line1: "", line2: "", city: "", state: "", pin: "" }),
     skills: Array.isArray(d.skills)
       ? d.skills.map(s => (typeof s === "string" ? s : (s.skill_name || s.name || "")))
       : [],
     education: Array.isArray(d.education)
       ? d.education.map(e => ({
-          degree:         e.degree         || "",
-          institution:    e.institution    || "",
-          year:           e.end_year != null ? String(e.end_year) : (e.year || ""),
-          grade:          e.grade_cgpa     || e.grade || "",
-          specialization: e.field_of_study || e.specialization || "",
-        }))
+        degree: e.degree || "",
+        institution: e.institution || "",
+        year: e.end_year != null ? String(e.end_year) : (e.year || ""),
+        grade: e.grade_cgpa || e.grade || "",
+        specialization: e.field_of_study || e.specialization || "",
+      }))
       : [],
     workHistory: Array.isArray(d.workHistory)
       ? d.workHistory.map(w => ({
-          company: w.company   || "",
-          role:    w.title     || w.role || "",
-          from:    w.start_date ? String(w.start_date).slice(0, 7) : (w.from || ""),
-          to:      w.end_date   ? String(w.end_date).slice(0, 7)   : (w.to   || ""),
-          reason:  w.description|| w.reason || "",
-          ctc:     w.ctc       || "",
-        }))
+        company: w.company || "",
+        role: w.title || w.role || "",
+        from: w.start_date ? String(w.start_date).slice(0, 7) : (w.from || ""),
+        to: w.end_date ? String(w.end_date).slice(0, 7) : (w.to || ""),
+        reason: w.description || w.reason || "",
+        ctc: w.ctc || "",
+      }))
       : [],
   };
 }
@@ -599,7 +599,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
         // Upload resume file if a new one was selected
         if (emp.resumeFileObj) {
           const fd = new FormData(); fd.append("file", emp.resumeFileObj);
-          await apiFetch(`/api/employees/${emp.id}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => {});
+          await apiFetch(`/api/employees/${emp.id}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
         }
         showToast(emp.name + " updated successfully", "#10B981");
       } catch (e) { setEmpList(prev); showToast("Network error — update not saved", "error"); }
@@ -617,7 +617,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
         // Upload resume file if selected during create
         if (emp.resumeFileObj) {
           const fd = new FormData(); fd.append("file", emp.resumeFileObj);
-          await apiFetch(`/api/employees/${newId}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => {});
+          await apiFetch(`/api/employees/${newId}/resume`, { method: "POST", body: fd, isFormData: true }).catch(() => { });
         }
         showToast(emp.name + " added — visible in Allocation & Leakage as Unallocated", "#10B981");
       } catch (e) { setEmpList(prev); showToast("Network error — employee not saved", "error"); }
@@ -786,7 +786,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
       {/* ── View Employee Profile Modal ── */}
       {viewEmp && (
         <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setViewEmp(null); }}>
-          <div className="modal" style={{ maxWidth: 680, width: "min(680px, calc(96vw - 236px))" }}>
+          <div className="modal" style={{ maxWidth: 680, width: "min(680px, calc(100% - 32px))" }}>
             {/* Header */}
             <div style={{
               padding: "22px 28px", background: "linear-gradient(135deg,#0D1B2A,#1E3A5F)", borderRadius: "14px 14px 0 0",
@@ -954,7 +954,7 @@ const EmployeeDatabase = ({ topBarProps, empList: empListProp, setEmpList: setEm
       {/* ── Delete confirm ── */}
       {confirmDel && (
         <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
-          <div className="modal" style={{ maxWidth: 400 }}>
+          <div className="modal" style={{ maxWidth: 400, width: "min(400px, calc(100% - 32px))" }}>
             <div style={{ padding: "28px" }}>
               <div style={{ fontSize: 28, textAlign: "center", marginBottom: 12 }}>⚠️</div>
               <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 16, color: "#0D1B2A", textAlign: "center", marginBottom: 8 }}>

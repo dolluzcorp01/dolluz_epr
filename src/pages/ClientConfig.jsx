@@ -140,8 +140,8 @@ const AddClientModal = ({ onAdd, onClose, visible }) => {
 
   if (!visible) return null;
   return (
-    <div className="modal-overlay">
-      <div className="modal" style={{ width: 680 }}>
+    <div className="modal-overlay" style={{ left: 236 }}>
+      <div className="modal" style={{ maxWidth: 680, width: "min(680px, calc(100% - 32px))" }}>
 
         {/* Header */}
         <div style={{ padding: "22px 28px 0", background: "linear-gradient(135deg,#0D1B2A,#1E3A5F)", borderRadius: "18px 18px 0 0" }}>
@@ -886,8 +886,8 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
         const shCount = (client.stakeholders || []).length;
         const domainCount = (client.domains || []).length;
         return (
-          <div className="modal-overlay" onClick={() => setConfirmDel(false)}>
-            <div className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-overlay" style={{ left: 236 }} onClick={() => setConfirmDel(false)}>
+            <div className="modal" style={{ maxWidth: 460, width: "min(460px, calc(100% - 32px))" }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: "28px 32px" }}>
                 {/* Header */}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
@@ -935,8 +935,8 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
       {confirmDelDept && (() => {
         const shCount = (client.stakeholders || []).filter(s => s.deptId === confirmDelDept.id).length;
         return (
-          <div className="modal-overlay" onClick={() => setConfirmDelDept(null)}>
-            <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-overlay" style={{ left: 236 }} onClick={() => setConfirmDelDept(null)}>
+            <div className="modal" style={{ maxWidth: 420, width: "min(420px, calc(100% - 32px))" }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: "26px 28px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>&#128465;</div>
@@ -980,8 +980,8 @@ const ClientConfig = ({ clients, setClients, employees, allReviews, topBarProps 
       })()}
 
       {confirmDelDomain && (
-        <div className="modal-overlay" onClick={() => setConfirmDelDomain(null)}>
-          <div className="modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={() => setConfirmDelDomain(null)}>
+          <div className="modal" style={{ maxWidth: 400, width: "min(400px, calc(100% - 32px))" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "26px 28px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 10, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>&#127758;</div>

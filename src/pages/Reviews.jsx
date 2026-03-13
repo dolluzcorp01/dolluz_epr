@@ -728,8 +728,8 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
 
       {/* ════ Log Modal ════ */}
       {logModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setLogModal(null); }}>
-          <div className="modal" style={{ maxWidth: 500 }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setLogModal(null); }}>
+          <div className="modal" style={{ maxWidth: 500, width: "min(500px, calc(100% - 32px))" }}>
             <div style={{
               padding: "20px 24px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center",
               background: "linear-gradient(135deg,#0D1B2A,#1E3A5F)", borderRadius: "14px 14px 0 0"
@@ -820,8 +820,8 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
 
       {/* ════ Preview Modal ════ */}
       {previewModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setPreviewModal(null); }}>
-          <div className="modal" style={{ maxWidth: 540 }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setPreviewModal(null); }}>
+          <div className="modal" style={{ maxWidth: 540, width: "min(540px, calc(100% - 32px))" }}>
             <div style={{
               padding: "20px 24px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center",
               background: "linear-gradient(135deg,#0D1B2A,#1E3A5F)", borderRadius: "14px 14px 0 0"

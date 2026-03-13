@@ -52,8 +52,8 @@ const FontLink = () => (
     .tab.active { background:#E8520A; color:#fff; font-weight:600; }
     .tab:not(.active):hover { background:#F1F5F9; color:#0D1B2A; }
     .notification-dot { width:7px; height:7px; background:#E8520A; border-radius:50%; position:absolute; top:2px; right:2px; animation:pulse 2s infinite; }
-    .modal-overlay { position:fixed; inset:0; background:rgba(13,27,42,.6); backdrop-filter:blur(4px); z-index:200; display:flex; align-items:center; justify-content:center; animation:fadeIn .2s ease; }
-    .modal { background:#fff; border-radius:18px; width:560px; max-width:96vw; max-height:92vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,.28); animation:fadeUp .3s ease; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(13,27,42,.6); backdrop-filter:blur(4px); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; animation:fadeIn .2s ease; }
+    .modal { background:#fff; border-radius:18px; width:560px; max-width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,.28); animation:fadeUp .3s ease; }
   `}</style>
 );
 

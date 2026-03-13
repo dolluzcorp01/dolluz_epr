@@ -149,7 +149,7 @@ const Sidebar = ({ active, setActive, leakageCount, reviewCount, onSignOut, prof
       ══════════════════════════════════════════════════════ */}
       {showProfile && profileDraft && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowProfile(false); }}>
-          <div className="modal" style={{ width: 480, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: "min(480px, 96vw)", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div style={{ background: "linear-gradient(135deg,#0D1B2A,#1A3352)", padding: "24px 28px 20px", borderRadius: "14px 14px 0 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -230,7 +230,7 @@ const Sidebar = ({ active, setActive, leakageCount, reviewCount, onSignOut, prof
       ══════════════════════════════════════════════════════ */}
       {showChgPwd && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowChgPwd(false); setPwd({ current: "", next: "", confirm: "" }); setPwdErr(""); setPwdOk(false); } }}>
-          <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: "min(420px, 96vw)" }} onClick={e => e.stopPropagation()}>
             <div style={{ background: "linear-gradient(135deg,#0D1B2A,#1A3352)", padding: "24px 28px 20px", borderRadius: "14px 14px 0 0" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
@@ -282,7 +282,7 @@ const Sidebar = ({ active, setActive, leakageCount, reviewCount, onSignOut, prof
       ══════════════════════════════════════════════════════ */}
       {showSignOut && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowSignOut(false); }}>
-          <div className="modal" style={{ width: 400, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: "min(400px, 96vw)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "36px 28px 24px" }}>
               <div style={{ fontSize: 44, marginBottom: 14 }}>🚪</div>
               <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 18, color: "#0D1B2A", marginBottom: 8 }}>Sign out of EPR Portal?</div>

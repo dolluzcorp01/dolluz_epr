@@ -341,8 +341,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
   const ScoringGuide = () => {
     const step = GUIDE_STEPS[guideStep];
     return (
-      <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowGuide(false); }}>
-        <div className="modal" style={{ maxWidth: 560 }}>
+      <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setShowGuide(false); }}>
+        <div className="modal" style={{ maxWidth: 560, width: "min(560px, calc(100% - 32px))" }}>
           <div style={{ borderRadius: "14px 14px 0 0", overflow: "hidden" }}>
             <div style={{ background: "linear-gradient(135deg," + step.color + "ee," + step.color + "99)", padding: "28px 28px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -765,8 +765,8 @@ const Scoring = ({ topBarProps, cycles, setCycles, clients, employees, cycleEmai
 
       {/* ── Publish Confirm Modal ── */}
       {showPublishModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowPublishModal(false); }}>
-          <div className="modal" style={{ maxWidth: 440 }}>
+        <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setShowPublishModal(false); }}>
+          <div className="modal" style={{ maxWidth: 440, width: "min(440px, calc(100% - 32px))" }}>
             <div style={{
               padding: "22px 26px", background: "linear-gradient(135deg,#065F46,#10B981)", borderRadius: "14px 14px 0 0",
               display: "flex", justifyContent: "space-between", alignItems: "center"

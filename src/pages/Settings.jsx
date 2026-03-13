@@ -358,8 +358,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
 
             {/* ── Add / Edit User Modal ── */}
             {showAddUser && (
-              <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowAddUser(false); }}>
-                <div className="modal" style={{ maxWidth: 500 }}>
+              <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setShowAddUser(false); }}>
+                <div className="modal" style={{ maxWidth: 500, width: "min(500px, calc(100% - 32px))" }}>
                   <div style={{ padding: "22px 26px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 16, color: "#0D1B2A" }}>
                       {editUser ? "Edit User" : "Add Portal User"}
@@ -479,8 +479,8 @@ const Settings = ({ topBarProps, profile, setProfile, clients, currentRole }) =>
 
             {/* ── Password Reset Modal ── */}
             {resetPwdUser && (
-              <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setResetPwdUser(null); }}>
-                <div className="modal" style={{ maxWidth: 420 }}>
+              <div className="modal-overlay" style={{ left: 236 }} onClick={e => { if (e.target === e.currentTarget) setResetPwdUser(null); }}>
+                <div className="modal" style={{ maxWidth: 420, width: "min(420px, calc(100% - 32px))" }}>
                   <div style={{ padding: "22px 26px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 16, color: "#0D1B2A" }}>Reset Password</div>
                     <button onClick={() => setResetPwdUser(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94A3B8" }}>&#215;</button>
