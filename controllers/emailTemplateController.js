@@ -12,7 +12,7 @@ async function listTemplates(req, res, next) {
       "SELECT id, name, subject, body, type FROM email_templates ORDER BY id"
     );
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── GET /api/email-templates/:id ─────────────────────────────────────────────
@@ -24,7 +24,7 @@ async function getTemplate(req, res, next) {
     );
     if (!tpl) return res.status(404).json({ success: false, message: "Template not found." });
     return res.json({ success: true, data: tpl });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/email-templates/:id ──────────────────────────────────────────────
@@ -44,7 +44,7 @@ async function updateTemplate(req, res, next) {
       [subject || null, body || null, id]
     );
     return res.json({ success: true, message: "Template updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── GET /api/email-templates/cc ───────────────────────────────────────────────
@@ -54,7 +54,7 @@ async function listCc(req, res, next) {
       "SELECT id, email, label, locked FROM cc_list ORDER BY locked DESC, email"
     );
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── POST /api/email-templates/cc ─────────────────────────────────────────────
@@ -67,7 +67,7 @@ async function addCc(req, res, next) {
       [email.toLowerCase().trim(), label || null]
     );
     return res.status(201).json({ success: true, message: "CC added.", id: result.insertId });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/email-templates/cc/:id ───────────────────────────────────────
@@ -79,7 +79,7 @@ async function removeCc(req, res, next) {
     if (row.locked) return res.status(403).json({ success: false, message: "This CC entry is locked and cannot be removed." });
     await db.execute("DELETE FROM cc_list WHERE id = ?", [id]);
     return res.json({ success: true, message: "CC removed." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 module.exports = { listTemplates, getTemplate, updateTemplate, createTemplate, deleteTemplate, listCc, addCc, removeCc };
@@ -94,7 +94,7 @@ async function createTemplate(req, res, next) {
       [name, type, subject || "", body || ""]
     );
     return res.status(201).json({ success: true, message: "Template created.", id: result.insertId, data: { id: result.insertId } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/email-templates/:id ──────────────────────────────────────────
@@ -106,5 +106,5 @@ async function deleteTemplate(req, res, next) {
     if (row.system_tpl) return res.status(403).json({ success: false, message: "System templates cannot be deleted." });
     await db.execute("DELETE FROM email_templates WHERE id = ?", [id]);
     return res.json({ success: true, message: "Template deleted." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailTemplateController]", err.message, err); next(err); }
 }

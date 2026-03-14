@@ -5,7 +5,7 @@
 //   review_text table for goals/feedback  |  review_scores for per-criterion ratings
 //   overall_rating stored directly on reviews row
 //   bulk-request endpoint added
-const db     = require("../config/db");
+const db = require("../config/db");
 const { sendEmail } = require("../utils/emailSender");
 const { generateReviewPdf } = require("../utils/pdf");
 const logger = require("../utils/logger");
@@ -16,9 +16,9 @@ async function listReviews(req, res, next) {
   try {
     let where = "WHERE 1=1";
     const params = [];
-    if (cycle_id)    { where += " AND r.cycle_id = ?";    params.push(cycle_id); }
-    if (client_id)   { where += " AND r.client_id = ?";   params.push(client_id); }
-    if (status)      { where += " AND r.status = ?";      params.push(status); }
+    if (cycle_id) { where += " AND r.cycle_id = ?"; params.push(cycle_id); }
+    if (client_id) { where += " AND r.client_id = ?"; params.push(client_id); }
+    if (status) { where += " AND r.status = ?"; params.push(status); }
     if (employee_id) { where += " AND r.employee_id = ?"; params.push(employee_id); }
 
     const [rows] = await db.execute(`
@@ -43,7 +43,7 @@ async function listReviews(req, res, next) {
       ORDER BY rc.start_date DESC, c.name, e.name
     `, params);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Admin: POST /api/reviews/:id/send-email ───────────────────────────────────
@@ -66,20 +66,20 @@ async function sendReviewEmail(req, res, next) {
     if (!r) return res.status(404).json({ success: false, message: "Review not found." });
 
     await sendEmail("review_request", r.stakeholder_email, {
-      StakeholderName : r.stakeholder_name,
-      EmployeeName    : r.employee_name,
-      Quarter         : r.cycle_name,
-      Year            : String(new Date().getFullYear()),
-      ClientName      : r.client_name,
-      ResourceCount   : "1",
-      Deadline        : new Date(r.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-      ReviewLink      : `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
-      resources       : [{ name: r.employee_name, link: `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}` }],
+      StakeholderName: r.stakeholder_name,
+      EmployeeName: r.employee_name,
+      Quarter: r.cycle_name,
+      Year: String(new Date().getFullYear()),
+      ClientName: r.client_name,
+      ResourceCount: "1",
+      Deadline: new Date(r.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+      ReviewLink: `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
+      resources: [{ name: r.employee_name, link: `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}` }],
     });
 
     await db.execute("UPDATE reviews SET status = 'Initiated', updated_at = NOW() WHERE id = ?", [id]);
     return res.json({ success: true, message: "Review email sent." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Admin: POST /api/reviews/bulk-request ─────────────────────────────────────
@@ -129,12 +129,12 @@ async function bulkRequest(req, res, next) {
       const resources = JSON.parse(row.resources || "[]");
       try {
         await sendEmail("review_request", row.stakeholder_email, {
-          StakeholderName : row.stakeholder_name,
-          Quarter         : cycle.quarter_label,
-          Year            : String(new Date().getFullYear()),
-          ClientName      : row.client_name,
-          ResourceCount   : String(resources.length),
-          Deadline        : new Date(cycle.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+          StakeholderName: row.stakeholder_name,
+          Quarter: cycle.quarter_label,
+          Year: String(new Date().getFullYear()),
+          ClientName: row.client_name,
+          ResourceCount: String(resources.length),
+          Deadline: new Date(cycle.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
           resources,
         });
         // Update statuses to Initiated
@@ -160,7 +160,7 @@ async function bulkRequest(req, res, next) {
       errors,
       bulk_requested_at: now,
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Admin: POST /api/reviews/:id/reactivate ───────────────────────────────────
@@ -189,17 +189,17 @@ async function reactivateReview(req, res, next) {
     );
 
     await sendEmail("reactivation", r.stakeholder_email, {
-      StakeholderName : r.stakeholder_name,
-      EmployeeName    : r.employee_name,
-      Quarter         : r.cycle_name,
-      ClientName      : r.client_name,
-      Deadline        : new Date(r.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-      ReviewLink      : `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
-      AdminNote       : admin_note || "",
+      StakeholderName: r.stakeholder_name,
+      EmployeeName: r.employee_name,
+      Quarter: r.cycle_name,
+      ClientName: r.client_name,
+      Deadline: new Date(r.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+      ReviewLink: `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
+      AdminNote: admin_note || "",
     });
 
     return res.json({ success: true, message: "Review reactivated and email sent to stakeholder." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Admin: PUT /api/reviews/:id/approve ──────────────────────────────────────
@@ -216,7 +216,7 @@ async function approveReview(req, res, next) {
       "UPDATE reviews SET status = 'Approved', updated_at = NOW() WHERE id = ?", [id]
     );
     return res.json({ success: true, message: "Review approved." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Stakeholder: GET /api/reviews/my ─────────────────────────────────────────
@@ -239,7 +239,7 @@ async function getMyReviews(req, res, next) {
       WHERE r.id IN (${ph})
     `, reviewIds);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Stakeholder: GET /api/reviews/:id/form ────────────────────────────────────
@@ -269,21 +269,21 @@ async function getReviewForm(req, res, next) {
 
     // criteria from review_criteria (domain schema) — mapped to competencies shape
     const [criteria] = await db.execute(
-      "SELECT id, label, section, weight FROM review_criteria ORDER BY section, display_order"
+      "SELECT id, label, section FROM review_criteria ORDER BY id ASC"
     );
 
     // Any previously saved responses
     const [responses] = await db.execute(
-      "SELECT criterion_id, score AS rating, feedback AS comment FROM review_scores WHERE review_id = ?", [id]
+      "SELECT criterion_id, score AS rating FROM review_scores WHERE review_id = ?", [id]
     );
 
     // Existing text (goals/feedback)
     const [[text]] = await db.execute(
-      "SELECT prev_goals, next_goals, free_feedback FROM review_text WHERE review_id = ?", [id]
+      "SELECT prev_goals, next_goals, feedback AS free_feedback FROM review_text WHERE review_id = ?", [id]
     );
 
     return res.json({ success: true, data: { review, criteria, responses, text: text || {} } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 // ── Stakeholder: POST /api/reviews/:id/submit ─────────────────────────────────
@@ -305,8 +305,8 @@ async function submitReview(req, res, next) {
 
     // Validate all criteria are rated
     const [criteria] = await conn.execute("SELECT id FROM review_criteria");
-    const ratedIds   = new Set(responses.map(r => String(r.criterion_id)));
-    const missing    = criteria.filter(c => !ratedIds.has(String(c.id)));
+    const ratedIds = new Set(responses.map(r => String(r.criterion_id)));
+    const missing = criteria.filter(c => !ratedIds.has(String(c.id)));
     if (missing.length) {
       await conn.rollback();
       return res.status(400).json({ success: false, message: `${missing.length} criteria have not been rated.` });
@@ -333,7 +333,7 @@ async function submitReview(req, res, next) {
 
     // Overall rating = average of scores
     const totalRating = responses.reduce((sum, r) => sum + r.rating, 0);
-    const overall     = parseFloat((totalRating / responses.length).toFixed(2));
+    const overall = parseFloat((totalRating / responses.length).toFixed(2));
 
     await conn.execute(`
       UPDATE reviews
@@ -368,15 +368,15 @@ async function submitReview(req, res, next) {
 
     const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
     const mergeData = {
-      StakeholderName : meta.stakeholder_name,
-      EmployeeName    : meta.employee_name,
-      Quarter         : meta.cycle_name,
-      Year            : String(new Date().getFullYear()),
-      ClientName      : meta.client_name,
-      SubmittedAt     : now,
-      SubmitterEmail  : email,
-      RecipientName   : meta.stakeholder_name,
-      PortalLink      : `${process.env.PORTAL_URL}/admin/reviews/${id}`,
+      StakeholderName: meta.stakeholder_name,
+      EmployeeName: meta.employee_name,
+      Quarter: meta.cycle_name,
+      Year: String(new Date().getFullYear()),
+      ClientName: meta.client_name,
+      SubmittedAt: now,
+      SubmitterEmail: email,
+      RecipientName: meta.stakeholder_name,
+      PortalLink: `${process.env.PORTAL_URL}/admin/reviews/${id}`,
     };
 
     // 1. Confirmation to stakeholder
@@ -390,22 +390,22 @@ async function submitReview(req, res, next) {
     // 3. PDF copy if requested
     if (send_copy) {
       generateReviewPdf({
-        review      : { id, submitted_at: new Date(), overall_rating: overall, prev_goals, next_goals, free_feedback },
-        responses   : responses.map(resp => ({
+        review: { id, submitted_at: new Date(), overall_rating: overall, prev_goals, next_goals, free_feedback },
+        responses: responses.map(resp => ({
           ...resp,
-          criterion_label : resp.label || `Criterion ${resp.criterion_id}`,
-          section         : resp.section || "—",
+          criterion_label: resp.label || `Criterion ${resp.criterion_id}`,
+          section: resp.section || "—",
         })),
-        employee    : { name: meta.employee_name, code: meta.employee_code },
-        cycle       : { cycle_name: meta.cycle_name },
-        stakeholder : { name: meta.stakeholder_name, email, company: meta.client_name },
+        employee: { name: meta.employee_name, code: meta.employee_code },
+        cycle: { cycle_name: meta.cycle_name },
+        stakeholder: { name: meta.stakeholder_name, email, company: meta.client_name },
       }).then(pdfBuffer => {
         const recipients = [email, ...(copy_emails || [])].filter(Boolean);
         recipients.forEach(to => {
           sendEmail("pdf_copy", to, { ...mergeData, RecipientName: to }, {
             attachments: [{
-              filename : `EPR_Review_${meta.employee_name.replace(/\s+/g, "_")}_${meta.cycle_name}.pdf`,
-              content  : pdfBuffer,
+              filename: `EPR_Review_${meta.employee_name.replace(/\s+/g, "_")}_${meta.cycle_name}.pdf`,
+              content: pdfBuffer,
             }],
           }).catch(e => logger.error(`PDF copy email failed: ${e.message}`));
         });
@@ -415,14 +415,64 @@ async function submitReview(req, res, next) {
     return res.json({ success: true, message: "Review submitted successfully. A confirmation has been sent to your email." });
   } catch (err) {
     await conn.rollback();
-    next(err);
+    console.error("[reviewController]", err.message, err); next(err);
   } finally { conn.release(); }
+}
+
+
+// ── Public: GET /api/reviews/:id/preview ─────────────────────────────────────
+// No auth — used by stakeholder form on load to show employee name/cycle info
+async function getReviewPreview(req, res, next) {
+  const { id } = req.params;
+  try {
+    const [[row]] = await db.execute(`
+      SELECT
+        e.name  AS employee_name,
+        e.code  AS employee_code,
+        e.role  AS designation,
+        c.name  AS client_name,
+        c.primary_domain,
+        d.name  AS dept_name,
+        rc.quarter_label AS cycle_name,
+        rc.deadline,
+        rc.status AS cycle_status,
+        r.status
+      FROM reviews r
+      JOIN employees     e  ON e.id  = r.employee_id
+      JOIN clients       c  ON c.id  = r.client_id
+      JOIN review_cycles rc ON rc.id = r.cycle_id
+      LEFT JOIN employee_allocations ea
+        ON ea.employee_id = r.employee_id
+       AND ea.client_id   = r.client_id
+       AND ea.is_active   = 1
+      LEFT JOIN client_departments d ON d.id = ea.dept_id
+      WHERE r.id = ?
+      LIMIT 1
+    `, [id]);
+    if (!row) return res.status(404).json({ success: false, message: "Review not found." });
+    // Only expose display-safe fields — no scores, no stakeholder info
+    return res.json({
+      success: true,
+      data: {
+        employee_name: row.employee_name,
+        employee_code: row.employee_code,
+        designation: row.designation,
+        dept_name: row.dept_name,
+        client_name: row.client_name,
+        primary_domain: row.primary_domain,
+        cycle_name: row.cycle_name,
+        deadline: row.deadline,
+        cycle_status: row.cycle_status,
+        status: row.status,
+      },
+    });
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 module.exports = {
   listReviews, sendReviewEmail, bulkRequest,
   reactivateReview, approveReview, remindReview, updateReview,
-  getMyReviews, getReviewForm, submitReview,
+  getMyReviews, getReviewForm, submitReview, getReviewPreview,
 };
 
 async function remindReview(req, res, next) {
@@ -433,7 +483,7 @@ async function remindReview(req, res, next) {
     // In production: send reminder email here
     await db.execute("UPDATE reviews SET updated_at = NOW() WHERE id = ?", [id]);
     return res.json({ success: true, message: "Reminder sent." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }
 
 async function updateReview(req, res, next) {
@@ -445,5 +495,5 @@ async function updateReview(req, res, next) {
     if (!r) return res.status(404).json({ success: false, message: "Review not found." });
     await db.execute("UPDATE reviews SET status = ?, updated_at = NOW() WHERE id = ?", [status, id]);
     return res.json({ success: true, message: "Review updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reviewController]", err.message, err); next(err); }
 }

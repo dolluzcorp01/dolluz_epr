@@ -59,7 +59,7 @@ async function listScoring(req, res, next) {
     `, params);
 
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── POST /api/scoring/:employee_id/compute?cycle_id=... ──────────────────────
@@ -83,7 +83,7 @@ async function computeScore(req, res, next) {
       "SELECT * FROM quarter_scores WHERE employee_id = ? AND cycle_id = ?", [employee_id, cycle_id]
     );
     return res.json({ success: true, message: "Score recomputed.", data: qs });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/scoring/:employee_id/hike?cycle_id=... ──────────────────────────
@@ -108,7 +108,7 @@ async function approveHike(req, res, next) {
       [approved_hike, employee_id, cycle_id]
     );
     return res.json({ success: true, message: "Hike approved." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/scoring/:employee_id/lock?cycle_id=... ──────────────────────────
@@ -134,7 +134,7 @@ async function lockScore(req, res, next) {
       [lock ? 1 : 0, lock ? 1 : 0, now, !lock ? 1 : 0, now, employee_id, cycle_id]
     );
     return res.json({ success: true, message: lock ? "Score locked." : "Score unlocked." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── GET /api/scoring/competencies ─────────────────────────────────────────────
@@ -142,7 +142,7 @@ async function listCompetencies(req, res, next) {
   try {
     const [rows] = await db.execute("SELECT * FROM competencies ORDER BY id");
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/scoring/competencies/:id ─────────────────────────────────────────
@@ -170,7 +170,7 @@ async function updateCompetency(req, res, next) {
       [weight, name, id]
     );
     return res.json({ success: true, message: "Competency updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 async function unlockScore(req, res, next) {
@@ -183,7 +183,7 @@ async function unlockScore(req, res, next) {
       [employee_id, cycle_id]
     );
     return res.json({ success: true, message: "Score unlocked." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/scoring/competencies (bulk) ─────────────────────────────────────
@@ -197,7 +197,7 @@ async function bulkUpdateCompetencies(req, res, next) {
       await db.execute("UPDATE competencies SET weight = ? WHERE id = ?", [c.weight, c.id]);
     }
     return res.json({ success: true, message: "Competencies updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[scoringController]", err.message, err); next(err); }
 }
 
 module.exports = { listScoring, computeScore, approveHike, lockScore, unlockScore, listCompetencies, updateCompetency, bulkUpdateCompetencies };

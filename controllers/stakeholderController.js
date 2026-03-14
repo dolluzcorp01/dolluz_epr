@@ -20,7 +20,7 @@ async function listStakeholders(req, res, next) {
       ORDER BY s.level, s.name
     `, [clientId]);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[stakeholderController]", err.message, err); next(err); }
 }
 
 // ── POST /api/clients/:clientId/stakeholders ──────────────────────────────────
@@ -56,7 +56,7 @@ async function createStakeholder(req, res, next) {
       [shId, clientId, name, email.toLowerCase().trim(), designation || null, level, dept_id || null, active !== undefined ? active : 1]
     );
     return res.status(201).json({ success: true, message: "Stakeholder added.", id: shId });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[stakeholderController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/clients/:clientId/stakeholders/:id ───────────────────────────────
@@ -81,7 +81,7 @@ async function updateStakeholder(req, res, next) {
        active !== undefined ? active : null, id, clientId]
     );
     return res.json({ success: true, message: "Stakeholder updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[stakeholderController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/clients/:clientId/stakeholders/:id ───────────────────────────
@@ -100,7 +100,7 @@ async function deleteStakeholder(req, res, next) {
     // Soft-delete: set active = 0
     await db.execute("UPDATE stakeholders SET active = 0 WHERE id = ? AND client_id = ?", [id, clientId]);
     return res.json({ success: true, message: "Stakeholder deactivated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[stakeholderController]", err.message, err); next(err); }
 }
 
 module.exports = { listStakeholders, createStakeholder, updateStakeholder, deleteStakeholder };

@@ -26,7 +26,7 @@ async function listAnnouncements(req, res, next) {
     }
 
     return res.json({ success: true, data });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[announcementController]", err.message, err); next(err); }
 }
 
 async function createAnnouncement(req, res, next) {
@@ -38,7 +38,7 @@ async function createAnnouncement(req, res, next) {
       [title, body, type || "info", expires_at || null, req.admin.id]
     );
     return res.status(201).json({ success: true, message: "Announcement created.", id: result.insertId });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[announcementController]", err.message, err); next(err); }
 }
 
 async function markAnnouncementRead(req, res, next) {
@@ -49,14 +49,14 @@ async function markAnnouncementRead(req, res, next) {
       [id, req.admin.id]
     );
     return res.json({ success: true });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[announcementController]", err.message, err); next(err); }
 }
 
 async function deleteAnnouncement(req, res, next) {
   try {
     await db.execute("DELETE FROM portal_announcements WHERE id = ?", [req.params.id]);
     return res.json({ success: true, message: "Announcement deleted." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[announcementController]", err.message, err); next(err); }
 }
 
 module.exports = { listAnnouncements, createAnnouncement, markAnnouncementRead, deleteAnnouncement };

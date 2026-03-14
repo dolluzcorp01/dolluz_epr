@@ -63,7 +63,7 @@ async function adminLogin(req, res, next) {
         twoFactorEnabled: !!user.two_factor_enabled,
       },
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }
 
 // ── Admin: POST /api/auth/change-password ─────────────────────────────────────
@@ -97,7 +97,7 @@ async function changePassword(req, res, next) {
       [hash, req.admin.id]
     );
     return res.json({ success: true, message: "Password changed successfully." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }
 
 // ── Admin: GET /api/auth/me ───────────────────────────────────────────────────
@@ -109,7 +109,7 @@ async function getMe(req, res, next) {
     );
     if (!u) return res.status(404).json({ success: false, message: "User not found." });
     return res.json({ success: true, user: u });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }
 
 // ── Admin: POST /api/auth/logout ──────────────────────────────────────────────
@@ -132,7 +132,7 @@ async function stakeholderRequestOtp(req, res, next) {
       "SELECT cd.domain FROM client_domains cd WHERE cd.domain = ? LIMIT 1", [domain]
     );
     if (!domainCheck.length) {
-      return res.json({ success: true, message: "If this email is registered for pending reviews, an OTP has been sent." });
+      return res.json({ success: true, otpSent: false, message: "If this email is registered for pending reviews, an OTP has been sent." });
     }
 
     // Find pending reviews for this stakeholder email in the active cycle
@@ -152,7 +152,7 @@ async function stakeholderRequestOtp(req, res, next) {
     `, [normalizedEmail]);
 
     if (!reviews.length) {
-      return res.json({ success: true, message: "If this email is registered for pending reviews, an OTP has been sent." });
+      return res.json({ success: true, otpSent: false, message: "If this email is registered for pending reviews, an OTP has been sent." });
     }
 
     const otp      = generateOtp();
@@ -165,15 +165,13 @@ async function stakeholderRequestOtp(req, res, next) {
       ON DUPLICATE KEY UPDATE otp_hash = VALUES(otp_hash), expires_at = VALUES(expires_at), attempts = 0
     `, [normalizedEmail, otpHash, expiresAt]);
 
-    // Mark reviews as In Progress (form link opened)
-    const reviewIds = reviews.map(r => r.id);
-    await db.execute(
-      `UPDATE reviews SET status = 'In Progress' WHERE id IN (${reviewIds.map(() => "?").join(",")})`,
-      reviewIds
-    );
+    // NOTE: Do NOT mark reviews as 'In Progress' here — that happens after OTP is verified.
+    // Moving status here would expose a security hole where anyone typing a stakeholder's
+    // email could flip their reviews to In Progress without proving identity.
 
-    // Send OTP email
+    // Send OTP email (includes OTP code for the stakeholder to verify)
     await sendEmail("review_request", normalizedEmail, {
+      OTP             : otp,
       StakeholderName : reviews[0].stakeholder_name || normalizedEmail,
       Quarter         : "Active Cycle",
       Year            : String(new Date().getFullYear()),
@@ -187,8 +185,8 @@ async function stakeholderRequestOtp(req, res, next) {
     });
 
     const devData = process.env.NODE_ENV === "development" ? { _devOtp: otp } : {};
-    return res.json({ success: true, message: "OTP sent. Check your email.", ...devData });
-  } catch (err) { next(err); }
+    return res.json({ success: true, otpSent: true, message: "OTP sent. Check your email.", ...devData });
+  } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }
 
 // ── Stakeholder: POST /api/auth/stakeholder/verify-otp ───────────────────────
@@ -230,6 +228,16 @@ async function stakeholderVerifyOtp(req, res, next) {
         AND rc.status = 'Active'
     `, [normalizedEmail]);
 
+    // NOW mark reviews as In Progress — identity is confirmed
+    if (reviews.length) {
+      const ids = reviews.map(r => r.id);
+      await db.execute(
+        `UPDATE reviews SET status = 'In Progress', updated_at = NOW()
+         WHERE id IN (${ids.map(() => "?").join(",")}) AND status IN ('Not Started', 'Initiated')`,
+        ids
+      );
+    }
+
     const token = signStakeholderToken({
       email     : normalizedEmail,
       reviewIds : reviews.map(r => r.id),
@@ -243,7 +251,7 @@ async function stakeholderVerifyOtp(req, res, next) {
       token,
       reviewIds : reviews.map(r => r.id),
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }
 
 module.exports = { adminLogin, adminLogout, changePassword, getMe, stakeholderRequestOtp, stakeholderVerifyOtp };

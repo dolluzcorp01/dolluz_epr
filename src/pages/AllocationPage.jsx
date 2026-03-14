@@ -72,15 +72,18 @@ const AllocationPage = ({ clients, employees, setEmployees, topBarProps, onAddNe
     setEmployees(p => p.map(e => e.id === eid ? { ...e, allocations: drafts } : e));
     closeEdit();
     try {
+      console.log("[saveDrafts] sending:", JSON.stringify({ employee_id: eid, allocations: drafts }, null, 2));
       const res = await apiFetch("/api/allocations", { method: "POST", body: JSON.stringify({ employee_id: eid, allocations: drafts }) });
       const d = await res.json();
-      if (!d.success) {
+      console.log("[saveDrafts] response:", res.status, d);
+      if (!res.ok || !d.success) {
         setEmployees(prevEmployees);
         showToast("Error: " + (d.message || "Save failed"), "error");
         return;
       }
-      showToast("Allocation saved", "#10B981");
+      showToast("Allocation saved", "success");
     } catch (e) {
+      console.error("[saveDrafts] exception:", e);
       setEmployees(prevEmployees);
       showToast("Network error — allocation not saved", "error");
     }

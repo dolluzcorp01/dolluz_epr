@@ -6,6 +6,9 @@ const { verifyAdminToken, requireRole, requirePasswordChanged } = require("../mi
 const { verifyStakeholderAuth } = require("../middleware/stakeholderAuth");
 const auth = [verifyAdminToken, requirePasswordChanged];
 
+// ── Public (no auth) ───────────────────────────────────────────────────────────
+router.get   ("/:id/preview",         ctrl.getReviewPreview);
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 router.get   ("/",                    ...auth, ctrl.listReviews);
 router.post  ("/bulk-request",        ...auth, requireRole("atLeast:sub_admin"), ctrl.bulkRequest);

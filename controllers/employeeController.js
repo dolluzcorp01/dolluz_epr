@@ -4,9 +4,9 @@
 //   official_email → added via schema additions  |  status(ENUM) → active(TINYINT)
 //   designation → role  |  base_ctc_usd → ctc
 //   allocations → employee_allocations, allocation_pct → pct
-const path = require("path");
-const fs = require("fs");
-const db = require("../config/db");
+const path   = require("path");
+const fs     = require("fs");
+const db     = require("../config/db");
 const { importEmployees } = require("../utils/excel");
 const logger = require("../utils/logger");
 
@@ -33,7 +33,7 @@ async function listEmployees(req, res, next) {
       params.push(client_id);
     }
 
-    const limitInt = parseInt(limit) || 50;
+    const limitInt  = parseInt(limit)  || 50;
     const offsetInt = parseInt(offset) || 0;
 
     const sql = `
@@ -52,14 +52,14 @@ async function listEmployees(req, res, next) {
       LIMIT ${limitInt} OFFSET ${offsetInt}
     `;
 
-    const [rows] = await db.execute(sql, params);
+    const [rows]        = await db.execute(sql, params);
     const [[{ total }]] = await db.execute(
       `SELECT COUNT(*) AS total FROM employees e ${where}`,
       params.slice(0, -2)
     );
 
     return res.json({ success: true, data: rows, pagination: { page: parseInt(page), limit: parseInt(limit), total } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── GET /api/employees/:id ────────────────────────────────────────────────────
@@ -69,8 +69,8 @@ async function getEmployee(req, res, next) {
     const [[employee]] = await db.execute("SELECT * FROM employees WHERE id = ?", [id]);
     if (!employee) return res.status(404).json({ success: false, message: "Employee not found." });
 
-    const [education] = await db.execute("SELECT * FROM employee_education WHERE employee_id = ? ORDER BY end_year DESC", [id]);
-    const [skills] = await db.execute("SELECT skill_name, proficiency FROM employee_skills WHERE employee_id = ? ORDER BY skill_name", [id]);
+    const [education]   = await db.execute("SELECT * FROM employee_education WHERE employee_id = ? ORDER BY end_year DESC", [id]);
+    const [skills]      = await db.execute("SELECT skill_name, proficiency FROM employee_skills WHERE employee_id = ? ORDER BY skill_name", [id]);
     const [workHistory] = await db.execute("SELECT * FROM employee_work_history WHERE employee_id = ? ORDER BY end_date DESC", [id]);
     const [allocations] = await db.execute(`
       SELECT a.*, c.name AS client_name, c.color_hex,
@@ -82,7 +82,7 @@ async function getEmployee(req, res, next) {
     `, [id]);
 
     return res.json({ success: true, data: { ...employee, education, skills, workHistory, allocations } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── POST /api/employees ───────────────────────────────────────────────────────
@@ -152,12 +152,12 @@ async function createEmployee(req, res, next) {
         const toSqlDate = v => {
           if (!v) return null;
           const s = String(v).trim();
-          if (/^\d{4}$/.test(s)) return s + "-01-01"; // "2023"
-          if (/^\d{4}-\d{2}$/.test(s)) return s + "-01";    // "2023-06"
+          if (/^\d{4}$/.test(s))          return s + "-01-01"; // "2023"
+          if (/^\d{4}-\d{2}$/.test(s))   return s + "-01";    // "2023-06"
           return s;                                              // "2023-06-15"
         };
         const startDate = toSqlDate(w.from);
-        const endDate = toSqlDate(w.to);
+        const endDate   = toSqlDate(w.to);
         await db.execute(
           "INSERT INTO employee_work_history (employee_id, company, title, start_date, end_date, description) VALUES (?,?,?,?,?,?)",
           [d.id, w.company, w.role || null, startDate, endDate, w.reason || null]
@@ -166,7 +166,7 @@ async function createEmployee(req, res, next) {
     }
 
     return res.status(201).json({ success: true, message: "Employee created.", id: d.id });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/employees/:id ────────────────────────────────────────────────────
@@ -179,20 +179,20 @@ async function updateEmployee(req, res, next) {
     if (!exists) return res.status(404).json({ success: false, message: "Employee not found." });
 
     const fields = [
-      "name", "official_email", "personal_email", "primary_phone", "secondary_phone",
-      "gender", "dob", "blood_group", "nationality", "aadhaar_number", "pan_number",
-      "passport_number", "passport_expiry", "passport_country",
-      "curr_addr_line1", "curr_addr_line2", "curr_addr_city", "curr_addr_state", "curr_addr_pincode",
-      "perm_addr_same_as_curr", "perm_addr_line1", "perm_addr_line2", "perm_addr_city", "perm_addr_state", "perm_addr_pincode",
-      "ec_name", "ec_relation", "ec_phone", "ec_email",
-      "role", "department", "joining_date", "active", "ctc", "reporting_manager", "internal_notes",
+      "name","official_email","personal_email","primary_phone","secondary_phone",
+      "gender","dob","blood_group","nationality","aadhaar_number","pan_number",
+      "passport_number","passport_expiry","passport_country",
+      "curr_addr_line1","curr_addr_line2","curr_addr_city","curr_addr_state","curr_addr_pincode",
+      "perm_addr_same_as_curr","perm_addr_line1","perm_addr_line2","perm_addr_city","perm_addr_state","perm_addr_pincode",
+      "ec_name","ec_relation","ec_phone","ec_email",
+      "role","department","joining_date","active","ctc","reporting_manager","internal_notes",
     ];
 
     const updates = fields.filter(f => d[f] !== undefined);
     if (!updates.length) return res.status(400).json({ success: false, message: "No fields to update." });
 
     const setClauses = updates.map(f => `${f} = ?`).join(", ");
-    const values = updates.map(f => d[f]);
+    const values     = updates.map(f => d[f]);
     values.push(req.admin.id, id);
 
     await db.execute(
@@ -233,12 +233,12 @@ async function updateEmployee(req, res, next) {
         const toSqlDate = v => {
           if (!v) return null;
           const s = String(v).trim();
-          if (/^\d{4}$/.test(s)) return s + "-01-01"; // "2023"
-          if (/^\d{4}-\d{2}$/.test(s)) return s + "-01";    // "2023-06"
+          if (/^\d{4}$/.test(s))          return s + "-01-01"; // "2023"
+          if (/^\d{4}-\d{2}$/.test(s))   return s + "-01";    // "2023-06"
           return s;                                              // "2023-06-15"
         };
         const startDate = toSqlDate(w.from);
-        const endDate = toSqlDate(w.to);
+        const endDate   = toSqlDate(w.to);
         await db.execute(
           "INSERT INTO employee_work_history (employee_id, company, title, start_date, end_date, description) VALUES (?,?,?,?,?,?)",
           [id, w.company, w.role || null, startDate, endDate, w.reason || null]
@@ -247,7 +247,7 @@ async function updateEmployee(req, res, next) {
     }
 
     return res.json({ success: true, message: "Employee updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/employees/:id ─────────────────────────────────────────────────
@@ -259,7 +259,7 @@ async function deleteEmployee(req, res, next) {
       [req.admin.id, id]
     );
     return res.json({ success: true, message: "Employee deactivated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── POST /api/employees/import ────────────────────────────────────────────────
@@ -277,7 +277,7 @@ async function bulkImport(req, res, next) {
       for (const emp of valid) {
         try {
           // Map legacy import columns to new schema
-          const empId = emp.id || emp.employee_code || emp.code;
+          const empId   = emp.id || emp.employee_code || emp.code;
           const empCode = emp.code || emp.employee_code || empId;
           const empName = emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
           const empRole = emp.role || emp.designation;
@@ -310,7 +310,7 @@ async function bulkImport(req, res, next) {
       await conn.execute(
         "INSERT INTO employee_import_logs (uploaded_by, filename, total_rows, success_rows, error_rows, errors_json) VALUES (?,?,?,?,?,?)",
         [req.admin.id, req.file.originalname, total, inserted, errors.length + insertErrors.length,
-        JSON.stringify([...errors, ...insertErrors])]
+         JSON.stringify([...errors, ...insertErrors])]
       );
 
       await conn.commit();
@@ -326,7 +326,7 @@ async function bulkImport(req, res, next) {
       parseErrors: errors,
       insertErrors,
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── POST /api/employees/:id/resume ────────────────────────────────────────────
@@ -339,7 +339,7 @@ async function uploadResume(req, res, next) {
       [req.file.path, req.file.originalname, req.admin.id, id]
     );
     return res.json({ success: true, message: "Resume uploaded.", path: req.file.path });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 // ── GET /api/employees/:id/resume ─────────────────────────────────────────────
@@ -352,7 +352,7 @@ async function downloadResume(req, res, next) {
     if (!emp || !emp.resume_file_path) return res.status(404).json({ success: false, message: "No resume on file." });
     if (!fs.existsSync(emp.resume_file_path)) return res.status(404).json({ success: false, message: "Resume file not found on disk." });
     res.download(emp.resume_file_path, emp.resume_original_name);
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[employeeController]", err.message, err); next(err); }
 }
 
 module.exports = {

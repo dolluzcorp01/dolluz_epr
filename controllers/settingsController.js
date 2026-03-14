@@ -19,7 +19,7 @@ async function getSettings(req, res, next) {
       return acc;
     }, {});
     return res.json({ success: true, data: grouped });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/settings ─────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ async function updateSettings(req, res, next) {
     } catch (e) { await conn.rollback(); throw e; }
     finally { conn.release(); }
     return res.json({ success: true, message: `${Object.keys(settings).length} setting(s) updated.` });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── GET /api/settings/users ───────────────────────────────────────────────────
@@ -55,7 +55,7 @@ async function listUsers(req, res, next) {
       ORDER BY role, name
     `);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── POST /api/settings/users ──────────────────────────────────────────────────
@@ -91,7 +91,7 @@ async function createUser(req, res, next) {
     });
 
     return res.status(201).json({ success: true, message: "User created. Welcome email sent.", id: result.insertId });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/settings/users/:id ───────────────────────────────────────────────
@@ -115,7 +115,7 @@ async function updateUser(req, res, next) {
        WHERE id = ?
     `, [name, role, designation, phone, timezone, is_active !== undefined ? is_active : null, id]);
     return res.json({ success: true, message: "User updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/settings/users/:id ───────────────────────────────────────────
@@ -126,7 +126,7 @@ async function deleteUser(req, res, next) {
   try {
     await db.execute("UPDATE admin_users SET is_active = 0, updated_at = NOW() WHERE id = ?", [req.params.id]);
     return res.json({ success: true, message: "User deactivated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── POST /api/settings/users/:id/reset-password ───────────────────────────────
@@ -152,7 +152,7 @@ async function resetUserPassword(req, res, next) {
       PortalURL    : process.env.PORTAL_URL || "https://epr.dolluz.com/admin",
     });
     return res.json({ success: true, message: "Password reset. New temporary password sent to user's email." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── POST /api/settings/users/:id/unlock ──────────────────────────────────────
@@ -163,7 +163,7 @@ async function unlockUser(req, res, next) {
       [req.params.id]
     );
     return res.json({ success: true, message: "Account unlocked." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── GET /api/settings/profile ─────────────────────────────────────────────────
@@ -174,7 +174,7 @@ async function getProfile(req, res, next) {
       [req.admin.id]
     );
     return res.json({ success: true, data: u });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/settings/profile ─────────────────────────────────────────────────
@@ -195,7 +195,7 @@ async function updateProfile(req, res, next) {
        WHERE id = ?
     `, [name, designation, phone, timezone, newInitials, req.admin.id]);
     return res.json({ success: true, message: "Profile updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[settingsController]", err.message, err); next(err); }
 }
 
 module.exports = {

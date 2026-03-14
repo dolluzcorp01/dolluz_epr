@@ -17,7 +17,7 @@ async function hikeHistory(req, res, next) {
     `;
     const [rows] = await db.execute(sql, employee_id ? [employee_id] : []);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reportController]", err.message, err); next(err); }
 }
 
 // ── GET /api/reports/client-performance?cycle_id=... ─────────────────────────
@@ -31,7 +31,7 @@ async function clientPerformance(req, res, next) {
     `;
     const [rows] = await db.execute(sql, cycle_id ? [cycle_id] : []);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reportController]", err.message, err); next(err); }
 }
 
 // ── GET /api/reports/dashboard ────────────────────────────────────────────────
@@ -73,7 +73,7 @@ async function dashboardSummary(req, res, next) {
       success: true,
       data: { counts, activeCycle: reviewStats, recentNotifications: recentNotifs },
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reportController]", err.message, err); next(err); }
 }
 
 // ── GET /api/reports/export?type=hikes|reviews|allocations&cycle_id=...&format=xlsx ──
@@ -155,7 +155,7 @@ async function exportReport(req, res, next) {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${fullName}"`);
     return res.send(buffer);
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[reportController]", err.message, err); next(err); }
 }
 
 module.exports = { hikeHistory, clientPerformance, dashboardSummary, exportReport };

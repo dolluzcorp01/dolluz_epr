@@ -7,7 +7,7 @@
 //    await sendEmail("review_request", "stakeholder@client.com", { ... });
 // ─────────────────────────────────────────────────────────────────────────────
 
-const transporter = require("../config/email");
+// const transporter = require("../config/email"); // EMAIL DISABLED
 const logger      = require("./logger");
 
 const FROM = `"${process.env.EMAIL_FROM_NAME || "Dolluz EPR Portal"}" <${process.env.EMAIL_FROM_ADDRESS || "noreply@dolluz.com"}>`;
@@ -254,14 +254,22 @@ async function sendEmail(templateKey, to, data = {}, options = {}) {
     attachments : options.attachments || [],
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    logger.info(`Email sent [${templateKey}] to ${mailOptions.to} — MessageId: ${info.messageId}`);
-    return info;
-  } catch (err) {
-    logger.error(`Email FAILED [${templateKey}] to ${mailOptions.to}: ${err.message}`);
-    throw err;
-  }
+  // ── MAIL SEND DISABLED (no SMTP configured) ──────────────────────────────
+  // Uncomment the try/catch below and remove the mock block when a real API key is available.
+  //
+  // try {
+  //   const info = await transporter.sendMail(mailOptions);
+  //   logger.info(`Email sent [${templateKey}] to ${mailOptions.to} — MessageId: ${info.messageId}`);
+  //   return info;
+  // } catch (err) {
+  //   logger.error(`Email FAILED [${templateKey}] to ${mailOptions.to}: ${err.message}`);
+  //   throw err;
+  // }
+
+  // Mock response so callers treat the send as successful
+  const mockInfo = { messageId: `mock-${Date.now()}@dolluz.dev` };
+  logger.info(`[MOCK EMAIL] [${templateKey}] to ${mailOptions.to} | subject: "${subject}"`);
+  return mockInfo;
 }
 
 module.exports = { sendEmail };

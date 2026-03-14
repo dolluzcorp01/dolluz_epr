@@ -280,7 +280,8 @@ const Scheduler = ({ employees, cycles, setCycles, clients, topBarProps, cycleEm
     } : c));
     setPreviewModal(null);
     try {
-      const res = await apiFetch(`/api/email-dispatch/${cycId}`, { method: "POST", body: JSON.stringify({ client_id: clId, stakeholder_id: shId, type, employee_ids: empList.map(e => e.id) }) });
+      const typeMap = { "Review Request": "request", "Reminder 1": "reminder1", "Reminder 2": "reminder2", "Reminder 3": "reminder3" };
+      const res = await apiFetch(`/api/email-dispatch/send`, { method: "POST", body: JSON.stringify({ cycle_id: cycId, client_id: clId, stakeholder_id: shId, email_type: typeMap[type] || type, employee_ids: empList.map(e => e.id) }) });
       const d = await res.json();
       if (!d.success) { showToast("Email queued but API error: " + (d.message || ""), "error"); return; }
     } catch (e) { }

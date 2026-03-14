@@ -61,7 +61,7 @@ async function listAllocations(req, res, next) {
     }));
 
     return res.json({ success: true, data });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[allocationController]", err.message, err); next(err); }
 }
 
 // ── GET /api/allocations/leakage ──────────────────────────────────────────────
@@ -82,7 +82,7 @@ async function getLeakage(req, res, next) {
       ORDER BY leakage_pct DESC
     `);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[allocationController]", err.message, err); next(err); }
 }
 
 // ── POST /api/allocations ─────────────────────────────────────────────────────
@@ -91,13 +91,32 @@ async function getLeakage(req, res, next) {
 async function createAllocation(req, res, next) {
   const { employee_id, allocations } = req.body;
 
-  if (!employee_id || !Array.isArray(allocations) || allocations.length === 0) {
-    return res.status(400).json({ success: false, message: "employee_id and allocations array are required." });
+  // Log every request body for debugging
+  console.log("[createAllocation] body:", JSON.stringify({ employee_id, allocations }, null, 2));
+
+  // employee_id is required. allocations can be [] meaning "remove all allocations for this employee"
+  if (!employee_id || !Array.isArray(allocations)) {
+    const msg = !employee_id ? "employee_id is missing" : "allocations must be an array";
+    console.log("[createAllocation] 400:", msg, "| body:", JSON.stringify(req.body));
+    return res.status(400).json({ success: false, message: msg });
+  }
+
+  // Empty array = valid: deactivate all existing and return success
+  if (allocations.length === 0) {
+    try {
+      await db.execute("DELETE FROM employee_allocations WHERE employee_id = ?", [employee_id]);
+      console.log("[createAllocation] all allocations cleared for", employee_id);
+      return res.status(201).json({ success: true, message: "All allocations removed.", ids: [] });
+    } catch (err) {
+      console.error("[createAllocation] error clearing all:", err.message, err);
+      return next(err);
+    }
   }
 
   // Validate total pct
   const totalPct = allocations.reduce((s, a) => s + Number(a.pct || 0), 0);
   if (totalPct > 100) {
+    console.log("[createAllocation] 400: total pct", totalPct);
     return res.status(400).json({ success: false, message: `Total allocation ${totalPct}% exceeds 100%.` });
   }
 
@@ -106,20 +125,24 @@ async function createAllocation(req, res, next) {
     const clientId = a.clientId || a.client_id;
     const pct = Number(a.pct);
     if (!clientId || !pct || pct < 1 || pct > 100) {
-      return res.status(400).json({ success: false, message: "Each allocation needs a valid clientId and pct (1–100)." });
+      console.log("[createAllocation] 400: bad entry", JSON.stringify(a));
+      return res.status(400).json({ success: false, message: `Each allocation needs a valid clientId and pct (1–100). Got: clientId=${clientId}, pct=${pct}` });
     }
     if (a.stakeholders && a.stakeholders.length > 0) {
       const splitSum = a.stakeholders.reduce((s, x) => s + Number(x.pct || 0), 0);
       if (splitSum > Number(a.pct)) {
+        console.log("[createAllocation] 400: stakeholder split", splitSum, ">", a.pct, "for", clientId);
         return res.status(400).json({ success: false, message: `Stakeholder split (${splitSum}%) exceeds allocation pct (${a.pct}%) for client ${clientId}.` });
       }
     }
   }
 
   try {
-    // Deactivate all existing allocations for this employee
+    // Delete all existing allocations for this employee before re-inserting
+    // Must DELETE not just set is_active=0 because the unique key (employee_id, client_id, dept_id)
+    // would cause ER_DUP_ENTRY on INSERT if the old row still exists.
     await db.execute(
-      "UPDATE employee_allocations SET is_active = 0 WHERE employee_id = ?",
+      "DELETE FROM employee_allocations WHERE employee_id = ?",
       [employee_id]
     );
 
@@ -152,8 +175,38 @@ async function createAllocation(req, res, next) {
       }
     }
 
+    // ── Auto-create reviews if a cycle is currently Active ──────────────────────
+    // This handles the case where an employee is allocated AFTER cycle activation.
+    // sp_create_cycle_reviews only runs at activation time, so late-allocated
+    // employees would otherwise never get review rows for the active cycle.
+    const [[activeCycle]] = await db.execute(
+      "SELECT id FROM review_cycles WHERE status = 'Active' LIMIT 1"
+    );
+    if (activeCycle) {
+      for (let i = 0; i < allocations.length; i++) {
+        const allocationId = insertedIds[i];
+        const clientId = allocations[i].clientId || allocations[i].client_id;
+
+        // Get stakeholders assigned to this allocation
+        const [shRows] = await db.execute(
+          "SELECT stakeholder_id FROM allocation_stakeholders WHERE allocation_id = ?",
+          [allocationId]
+        );
+
+        for (const sh of shRows) {
+          // Build a unique review ID: RV_<employeeId>_<shId>_<cycleId>
+          const reviewId = `RV_${employee_id}_${sh.stakeholder_id}_${activeCycle.id}`;
+          await db.execute(`
+            INSERT IGNORE INTO reviews
+              (id, employee_id, cycle_id, client_id, stakeholder_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'Not Started', NOW(), NOW())
+          `, [reviewId, employee_id, activeCycle.id, clientId, sh.stakeholder_id]);
+        }
+      }
+    }
+
     return res.status(201).json({ success: true, message: "Allocations saved.", ids: insertedIds });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[allocationController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/allocations/:id ──────────────────────────────────────────────────
@@ -184,7 +237,7 @@ async function updateAllocation(req, res, next) {
     }
 
     return res.json({ success: true, message: "Allocation updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[allocationController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/allocations/:id ───────────────────────────────────────────────
@@ -192,7 +245,7 @@ async function deleteAllocation(req, res, next) {
   try {
     await db.execute("UPDATE employee_allocations SET is_active = 0 WHERE id = ?", [req.params.id]);
     return res.json({ success: true, message: "Allocation removed." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[allocationController]", err.message, err); next(err); }
 }
 
 module.exports = { listAllocations, getLeakage, createAllocation, updateAllocation, deleteAllocation };

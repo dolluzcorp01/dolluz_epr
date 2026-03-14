@@ -11,7 +11,7 @@ async function listNotifications(req, res, next) {
     );
     const [[{ unread }]] = await db.execute("SELECT COUNT(*) AS unread FROM notifications WHERE is_read = 0");
     return res.json({ success: true, data: rows, unreadCount: unread });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[notificationController]", err.message, err); next(err); }
 }
 
 async function markRead(req, res, next) {
@@ -23,7 +23,7 @@ async function markRead(req, res, next) {
       await db.execute("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE id = ?", [id]);
     }
     return res.json({ success: true, message: "Notification(s) marked as read." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[notificationController]", err.message, err); next(err); }
 }
 
 module.exports = { listNotifications, markRead };

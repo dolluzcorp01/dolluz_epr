@@ -26,7 +26,7 @@ async function listClients(req, res, next) {
       ORDER BY c.name
     `);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── GET /api/clients/:id ──────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ async function getClient(req, res, next) {
     `, [req.params.id]);
 
     return res.json({ success: true, data: { ...client, domains, departments, stakeholders, allocations } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── POST /api/clients ─────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ async function createClient(req, res, next) {
       ]
     );
     return res.status(201).json({ success: true, message: "Client created.", id: code });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/clients/:id ──────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ async function updateClient(req, res, next) {
        pc_name ?? null, pc_email ?? null, pc_phone ?? null, notes ?? null, id]
     );
     return res.json({ success: true, message: "Client updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/clients/:id ───────────────────────────────────────────────────
@@ -166,7 +166,7 @@ async function deleteClient(req, res, next) {
     }
     await db.execute("UPDATE clients SET status = 'inactive', updated_at = NOW() WHERE id = ?", [id]);
     return res.json({ success: true, message: "Client deactivated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/clients/:id/primary-stakeholder ──────────────────────────────────
@@ -191,7 +191,7 @@ async function setPrimaryStakeholder(req, res, next) {
       message: `Primary stakeholder set to ${sh.name}.`,
       primary_stakeholder_id: stakeholder_id,
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── GET /api/clients/:id/domains ─────────────────────────────────────────────
@@ -202,7 +202,7 @@ async function listDomains(req, res, next) {
       [req.params.id]
     );
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── POST /api/clients/:id/domains ─────────────────────────────────────────────
@@ -216,7 +216,7 @@ async function addDomain(req, res, next) {
       [id, domain.trim().toLowerCase()]
     );
     return res.status(201).json({ success: true, id: result.insertId, domain: domain.trim().toLowerCase() });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/clients/:id/domains/:domainId ─────────────────────────────────
@@ -225,7 +225,7 @@ async function removeDomain(req, res, next) {
   try {
     await db.execute("DELETE FROM client_domains WHERE id = ? AND client_id = ?", [domainId, id]);
     return res.json({ success: true, message: "Domain removed." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── POST /api/clients/:id/departments ─────────────────────────────────────────
@@ -244,7 +244,7 @@ async function addDepartment(req, res, next) {
       [deptId, id, name.trim()]
     );
     return res.status(201).json({ success: true, id: deptId, name: name.trim() });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 // ── DELETE /api/clients/:id/departments/:deptId ───────────────────────────────
@@ -258,7 +258,7 @@ async function removeDepartment(req, res, next) {
     );
     await db.execute("DELETE FROM client_departments WHERE id = ? AND client_id = ?", [deptId, id]);
     return res.json({ success: true, message: "Department removed. Stakeholders promoted to client-level." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[clientController]", err.message, err); next(err); }
 }
 
 module.exports = {

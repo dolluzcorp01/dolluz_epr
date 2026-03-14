@@ -64,7 +64,7 @@ async function getDispatchState(req, res, next) {
     }
 
     return res.json({ success: true, data: state });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailDispatchController]", err.message, err); next(err); }
 }
 
 // ── POST /api/email-dispatch/send ─────────────────────────────────────────────
@@ -132,7 +132,7 @@ async function recordSend(req, res, next) {
       state_id    : stateId,
       sent_at     : now,
     });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[emailDispatchController]", err.message, err); next(err); }
 }
 
 module.exports = { getDispatchState, recordSend };

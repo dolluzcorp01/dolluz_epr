@@ -24,7 +24,7 @@ async function listCycles(req, res, next) {
       ORDER BY rc.start_date DESC
     `);
     return res.json({ success: true, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 // ── GET /api/cycles/:id ───────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ async function getCycle(req, res, next) {
     );
 
     return res.json({ success: true, data: { ...cycle, reminders, reviews, emailHistory } });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 // ── POST /api/cycles ──────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ async function createCycle(req, res, next) {
       }
     }
     return res.status(201).json({ success: true, message: "Cycle created.", id });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/cycles/:id ───────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ async function updateCycle(req, res, next) {
       [quarter_label, start_date, deadline, r1_date || null, r2_date || null, r3_date || null, status, id]
     );
     return res.json({ success: true, message: "Cycle updated." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 // ── POST /api/cycles/:id/activate ────────────────────────────────────────────
@@ -136,7 +136,7 @@ async function activateCycle(req, res, next) {
     return res.json({ success: true, message: "Cycle activated. Reviews created for all active allocations." });
   } catch (err) {
     await conn.rollback();
-    next(err);
+    console.error("[cycleController]", err.message, err); next(err);
   } finally { conn.release(); }
 }
 
@@ -149,7 +149,7 @@ async function closeCycle(req, res, next) {
       [req.admin.id, id]
     );
     return res.json({ success: true, message: "Cycle closed." });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 // ── PUT /api/cycles/:id/reminders ─────────────────────────────────────────────
@@ -180,7 +180,7 @@ async function setReminders(req, res, next) {
     return res.json({ success: true, message: `${reminder_dates.length} reminder(s) saved.` });
   } catch (err) {
     await conn.rollback();
-    next(err);
+    console.error("[cycleController]", err.message, err); next(err);
   } finally { conn.release(); }
 }
 
@@ -202,7 +202,7 @@ async function bulkRequest(req, res, next) {
     const now = new Date();
     await db.execute("UPDATE review_cycles SET bulk_requested_at = ?, updated_at = NOW() WHERE id = ?", [now, id]);
     return res.json({ success: true, message: "Bulk request recorded.", bulk_requested_at: now });
-  } catch (err) { next(err); }
+  } catch (err) { console.error("[cycleController]", err.message, err); next(err); }
 }
 
 module.exports = { listCycles, getCycle, createCycle, updateCycle, activateCycle, closeCycle, setReminders, bulkRequest };
