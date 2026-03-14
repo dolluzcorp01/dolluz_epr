@@ -75,6 +75,9 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
   const showToast = (msg, type = "") => { setToast(msg); setToastType(type); setTimeout(() => { setToast(""); setToastType(""); }, 2800); };
 
   // ── Email functions — shared state with Scheduler ───────────────────────────
+  // Uses the same /api/email-dispatch/send endpoint as Scheduler so both
+  // cycle_stakeholder_email_state, email_logs AND reviews.status are always in sync.
+  const TYPE_MAP = { "Review Request": "request", "Reminder 1": "reminder1", "Reminder 2": "reminder2", "Reminder 3": "reminder3" };
   const sendStakeholderEmail = async (cycId, clId, shId, shName, shEmail, empList, quarter, type) => {
     const key = cycId + "_" + clId + "_" + shId;
     const now = new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -91,7 +94,16 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
     });
     setPreviewModal(null);
     try {
-      const res = await apiFetch(`/api/reviews/${cycId}_${clId}_${shId}/send-email`, { method: "POST", body: JSON.stringify({ type, employee_ids: empList.map(e => e.id) }) });
+      const res = await apiFetch("/api/email-dispatch/send", {
+        method: "POST",
+        body: JSON.stringify({
+          cycle_id: cycId,
+          client_id: clId,
+          stakeholder_id: shId,
+          email_type: TYPE_MAP[type] || "request",
+          employee_ids: empList.map(e => e.id),
+        }),
+      });
       const d = await res.json();
       if (!d.success) { setCycleEmailState(prevEmailState); showToast("Error: " + (d.message || "Email send failed"), "error"); return; }
       showToast(type + " sent to " + shName);
@@ -348,11 +360,11 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10, marginBottom: 18 }}>
         {[
           { label: "Total Reviews", value: totalCombos, color: "#0D1B2A", bg: "#F8FAFC", filter: null },
-          { label: "Not Started", value: countNS, color: "#94A3B8", bg: "#F8FAFC", filter: "Not Started" },
-          { label: "Initiated", value: countInit, color: "#4338CA", bg: "#EEF2FF", filter: "Initiated" },
-          { label: "In Progress", value: countIP, color: "#92400E", bg: "#FEF3C7", filter: "In Progress" },
-          { label: "Submitted", value: countSub, color: "#1E40AF", bg: "#DBEAFE", filter: "Submitted" },
-          { label: "Closed", value: countClosed, color: "#065F46", bg: "#D1FAE5", filter: "Closed" },
+          { label: "Not Started",   value: countNS,     color: "#94A3B8", bg: "#F8FAFC", filter: "Not Started" },
+          { label: "Initiated",     value: countInit,   color: "#4338CA", bg: "#EEF2FF", filter: "Initiated" },
+          { label: "In Progress",   value: countIP,     color: "#92400E", bg: "#FEF3C7", filter: "In Progress" },
+          { label: "Submitted",     value: countSub,    color: "#1E40AF", bg: "#DBEAFE", filter: "Submitted" },
+          { label: "Closed",        value: countClosed, color: "#065F46", bg: "#D1FAE5", filter: "Closed" },
         ].map(s => {
           const isActive = statusFilter === s.filter;
           return (

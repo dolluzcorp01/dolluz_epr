@@ -126,6 +126,37 @@ async function recordSend(req, res, next) {
       )
     ));
 
+    // When sending a review request, update reviews.status → 'Initiated'
+    // This keeps the reviews table in sync with the email state
+    if (email_type === "request" && employee_ids.length > 0) {
+      const ph = employee_ids.map(() => "?").join(",");
+      await db.execute(
+        `UPDATE reviews
+            SET status = 'Initiated', updated_at = NOW()
+          WHERE cycle_id = ?
+            AND client_id = ?
+            AND stakeholder_id = ?
+            AND employee_id IN (${ph})
+            AND status = 'Not Started'`,
+        [cycle_id, client_id, stakeholder_id, ...employee_ids]
+      );
+    }
+
+    // For reminders, update reviews.status → 'Initiated' only if still Not Started
+    // (keeps the status from regressing if stakeholder already opened the form)
+    if ((email_type === "reminder1" || email_type === "reminder2" || email_type === "reminder3") && employee_ids.length > 0) {
+      const ph = employee_ids.map(() => "?").join(",");
+      await db.execute(
+        `UPDATE reviews
+            SET updated_at = NOW()
+          WHERE cycle_id = ?
+            AND client_id = ?
+            AND stakeholder_id = ?
+            AND employee_id IN (${ph})`,
+        [cycle_id, client_id, stakeholder_id, ...employee_ids]
+      );
+    }
+
     return res.json({
       success     : true,
       message     : `${email_type} recorded for ${employee_ids.length} employee(s).`,
