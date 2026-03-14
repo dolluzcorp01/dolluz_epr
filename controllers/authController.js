@@ -3,12 +3,12 @@
 //   reviews.status: pending→Not Started, opened→In Progress, submitted→Submitted
 //   stakeholder email resolved via JOIN to stakeholders table (not inline columns)
 //   admin_users: avatar_letter column (added via schema additions)
-const bcrypt  = require("bcryptjs");
-const db      = require("../config/db");
+const bcrypt = require("bcryptjs");
+const db = require("../config/db");
 const { signAdminToken, signStakeholderToken } = require("../utils/jwt");
 const { generateOtp, hashOtp, verifyOtp, otpExpiresAt } = require("../utils/otp");
 const { sendEmail } = require("../utils/emailSender");
-const logger  = require("../utils/logger");
+const logger = require("../utils/logger");
 
 const MAX_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
 const LOCKOUT_MINS = parseInt(process.env.LOCKOUT_DURATION_MINUTES) || 30;
@@ -91,7 +91,7 @@ async function changePassword(req, res, next) {
     if (cfg.require_special_char === "true" && !/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) return res.status(400).json({ success: false, message: "Password must contain at least one special character." });
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hash   = await bcrypt.hash(newPassword, rounds);
+    const hash = await bcrypt.hash(newPassword, rounds);
     await db.execute(
       "UPDATE admin_users SET password_hash=?, require_password_reset=0, last_password_change_at=NOW() WHERE id=?",
       [hash, req.admin.id]
@@ -147,7 +147,7 @@ async function stakeholderRequestOtp(req, res, next) {
       JOIN stakeholders s  ON s.id = r.stakeholder_id
       JOIN review_cycles rc ON rc.id = r.cycle_id
       WHERE s.email = ?
-        AND r.status IN ('Not Started', 'Initiated')
+        AND r.status = 'Initiated'
         AND rc.status = 'Active'
     `, [normalizedEmail]);
 
@@ -155,8 +155,8 @@ async function stakeholderRequestOtp(req, res, next) {
       return res.json({ success: true, otpSent: false, message: "If this email is registered for pending reviews, an OTP has been sent." });
     }
 
-    const otp      = generateOtp();
-    const otpHash  = await hashOtp(otp);
+    const otp = generateOtp();
+    const otpHash = await hashOtp(otp);
     const expiresAt = otpExpiresAt();
 
     await db.execute(`
@@ -171,16 +171,16 @@ async function stakeholderRequestOtp(req, res, next) {
 
     // Send OTP email (includes OTP code for the stakeholder to verify)
     await sendEmail("review_request", normalizedEmail, {
-      OTP             : otp,
-      StakeholderName : reviews[0].stakeholder_name || normalizedEmail,
-      Quarter         : "Active Cycle",
-      Year            : String(new Date().getFullYear()),
-      ClientName      : reviews[0].client_name,
-      ResourceCount   : String(reviews.length),
-      Deadline        : "—",
-      resources       : reviews.map(r => ({
-        name : r.employee_name,
-        link : `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
+      OTP: otp,
+      StakeholderName: reviews[0].stakeholder_name || normalizedEmail,
+      Quarter: "Active Cycle",
+      Year: String(new Date().getFullYear()),
+      ClientName: reviews[0].client_name,
+      ResourceCount: String(reviews.length),
+      Deadline: "—",
+      resources: reviews.map(r => ({
+        name: r.employee_name,
+        link: `${process.env.STAKEHOLDER_FORM_URL}?r=${r.id}`,
       })),
     });
 
@@ -239,17 +239,17 @@ async function stakeholderVerifyOtp(req, res, next) {
     }
 
     const token = signStakeholderToken({
-      email     : normalizedEmail,
-      reviewIds : reviews.map(r => r.id),
-      clientId  : reviews[0] ? reviews[0].client_id : null,
+      email: normalizedEmail,
+      reviewIds: reviews.map(r => r.id),
+      clientId: reviews[0] ? reviews[0].client_id : null,
     });
 
     await db.execute("DELETE FROM stakeholder_otps WHERE email = ?", [normalizedEmail]);
 
     return res.json({
-      success   : true,
+      success: true,
       token,
-      reviewIds : reviews.map(r => r.id),
+      reviewIds: reviews.map(r => r.id),
     });
   } catch (err) { console.error("[authController]", err.message, err); next(err); }
 }

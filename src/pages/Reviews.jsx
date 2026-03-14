@@ -30,7 +30,8 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
   const [expanded, setExpanded] = useState({});
   const [logModal, setLogModal] = useState(null);
   const [previewModal, setPreviewModal] = useState(null);
-  const [toast, setToast] = useState("")
+  const [toast, setToast] = useState("");
+  const [statusFilter, setStatusFilter] = useState(null); // null = show all
 
   // ── Bulk Request Review ──────────────────────────────────────────────────────
   const isBulkDone = !!(bulkRequestedCycles && selCycId && bulkRequestedCycles[selCycId]);
@@ -214,12 +215,25 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
 
   // ── Employee list ─────────────────────────────────────────────────────────────
   const allEmps = employees || [];
-  const filteredEmps = allEmps.filter(e =>
-    !search ||
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    e.code.toLowerCase().includes(search.toLowerCase()) ||
-    (e.role || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredEmps = allEmps.filter(e => {
+    // Text search
+    const matchSearch = !search ||
+      e.name.toLowerCase().includes(search.toLowerCase()) ||
+      e.code.toLowerCase().includes(search.toLowerCase()) ||
+      (e.role || "").toLowerCase().includes(search.toLowerCase());
+    if (!matchSearch) return false;
+    // Status filter — keep employee only if they have at least one combo matching the selected status
+    if (statusFilter) {
+      const allocatedCl = (e.allocations || []).filter(a => a.pct > 0);
+      const hasMatch = allocatedCl.some(alloc => {
+        const cl = (clients || []).find(c => c.id === alloc.clientId);
+        if (!cl) return false;
+        return getEmpStakeholders(e, cl).some(sh => getReviewStatus(e, cl, sh) === statusFilter);
+      });
+      return hasMatch;
+    }
+    return true;
+  });
 
   const allExpanded = filteredEmps.length > 0 && filteredEmps.every(e => !!expanded[e.id]);
   const toggleAll = () => {
@@ -275,7 +289,7 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       {/* ── Cycle Selector ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>Cycle:</span>
-        <select value={selCycId || ""} onChange={e => setSelCycId(e.target.value)}
+        <select value={selCycId || ""} onChange={e => { setSelCycId(e.target.value); setStatusFilter(null); }}
           style={{
             padding: "8px 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", fontSize: 13,
             fontWeight: 600, color: "#0D1B2A", background: "#fff", cursor: "pointer", minWidth: 170
@@ -333,19 +347,53 @@ const Reviews = ({ employees, clients, cycles, cycleEmailState, setCycleEmailSta
       {/* ── Stats Bar ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10, marginBottom: 18 }}>
         {[
-          { label: "Total Reviews", value: totalCombos, color: "#0D1B2A", bg: "#F8FAFC" },
-          { label: "Not Started", value: countNS, color: "#94A3B8", bg: "#F8FAFC" },
-          { label: "Initiated", value: countInit, color: "#4338CA", bg: "#EEF2FF" },
-          { label: "In Progress", value: countIP, color: "#92400E", bg: "#FEF3C7" },
-          { label: "Submitted", value: countSub, color: "#1E40AF", bg: "#DBEAFE" },
-          { label: "Closed", value: countClosed, color: "#065F46", bg: "#D1FAE5" },
-        ].map(s => (
-          <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: "12px 14px", border: "1px solid #F1F5F9" }}>
-            <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
-          </div>
-        ))}
+          { label: "Total Reviews", value: totalCombos, color: "#0D1B2A", bg: "#F8FAFC", filter: null },
+          { label: "Not Started", value: countNS, color: "#94A3B8", bg: "#F8FAFC", filter: "Not Started" },
+          { label: "Initiated", value: countInit, color: "#4338CA", bg: "#EEF2FF", filter: "Initiated" },
+          { label: "In Progress", value: countIP, color: "#92400E", bg: "#FEF3C7", filter: "In Progress" },
+          { label: "Submitted", value: countSub, color: "#1E40AF", bg: "#DBEAFE", filter: "Submitted" },
+          { label: "Closed", value: countClosed, color: "#065F46", bg: "#D1FAE5", filter: "Closed" },
+        ].map(s => {
+          const isActive = statusFilter === s.filter;
+          return (
+            <div key={s.label}
+              onClick={() => setStatusFilter(isActive ? null : s.filter)}
+              style={{
+                background: s.bg, borderRadius: 10, padding: "12px 14px",
+                border: isActive ? "2px solid " + s.color : "1px solid #F1F5F9",
+                cursor: "pointer", transition: "all .15s",
+                transform: isActive ? "translateY(-2px)" : "none",
+                boxShadow: isActive ? "0 4px 12px " + s.color + "33" : "none",
+                position: "relative",
+              }}>
+              {isActive && (
+                <span style={{
+                  position: "absolute", top: 6, right: 8,
+                  fontSize: 9, fontWeight: 800, color: s.color,
+                  textTransform: "uppercase", letterSpacing: .5
+                }}>● Filtered</span>
+              )}
+              <div style={{ fontSize: 10, color: isActive ? s.color : "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+            </div>
+          );
+        })}
       </div>
+      {/* Active filter pill */}
+      {statusFilter && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: "#64748B" }}>Showing:</span>
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 100,
+            background: "#0D1B2A", color: "#fff", display: "flex", alignItems: "center", gap: 6
+          }}>
+            {statusFilter}
+            <span onClick={() => setStatusFilter(null)}
+              style={{ cursor: "pointer", opacity: .7, fontSize: 14, lineHeight: 1 }}>×</span>
+          </span>
+          <span style={{ fontSize: 11, color: "#94A3B8" }}>Click the card again or × to clear</span>
+        </div>
+      )}
 
       {/* ── Toolbar ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>

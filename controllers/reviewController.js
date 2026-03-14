@@ -313,22 +313,23 @@ async function submitReview(req, res, next) {
     }
 
     // Upsert scores into review_scores
+    // NOTE: review_scores table only has (id, review_id, criterion_id, score) — no feedback column
     for (const resp of responses) {
       await conn.execute(`
-        INSERT INTO review_scores (review_id, criterion_id, score, feedback)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE score = VALUES(score), feedback = VALUES(feedback)
-      `, [id, resp.criterion_id, resp.rating, resp.comment || null]);
+        INSERT INTO review_scores (review_id, criterion_id, score)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE score = VALUES(score)
+      `, [id, resp.criterion_id, resp.rating]);
     }
 
     // Upsert review_text
     await conn.execute(`
-      INSERT INTO review_text (review_id, prev_goals, next_goals, free_feedback)
+      INSERT INTO review_text (review_id, prev_goals, next_goals, feedback)
       VALUES (?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
-        prev_goals    = VALUES(prev_goals),
-        next_goals    = VALUES(next_goals),
-        free_feedback = VALUES(free_feedback)
+        prev_goals = VALUES(prev_goals),
+        next_goals = VALUES(next_goals),
+        feedback   = VALUES(feedback)
     `, [id, prev_goals || null, next_goals || null, free_feedback || null]);
 
     // Overall rating = average of scores
